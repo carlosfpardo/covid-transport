@@ -13,7 +13,7 @@ library(lubridate)
 ##Importar base de datos desde GitHub Desktop
 Bog <- read_excel("~/GitHub/covid-transport/Bogota_daily_cases.xlsx", 
                   range = "E1:F51")
-View(Bogota_daily_cases)
+View(Bog)
 
 ##Cambio de nombres de columnas por practicidad
 colnames(Bog)=c("Semana","Casos")
@@ -49,7 +49,7 @@ Ocup_TP50 <- as.Date("2020-04-30")
 Ocup_TP35 <- as.Date("2020-05-22")
 Ocup_TP50_rec <- as.Date("2020-08-25")
 
-#Creación de la Base de datos de Hitos (se puede revisar la opción de crear base de datos solo con hitos a conveniencia o armar dataframe desde acá)
+#Creación de la Base de datos de Hitos
 Hitos <- data.frame(Date=c(OMS_pandemia,###Internacionales (recientes al final)
                            Estado_emergencia,Ais_prev_obl,COVID_friday,Vacuna_fase1,###Nacionales (recientes al final)
                            Calamidad_pública,Simulacro_Vital,Bog_solidaria,Ais_prev_obl_bog,Cuarentena_18loc,Lev_medidas_estrictas,Ais_sel_reapertura,Med_fin_año,Alerta_roja,###Bogotá (recientes al final)
