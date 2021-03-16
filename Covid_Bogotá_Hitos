@@ -1,8 +1,8 @@
-#limpiar RAM y memoria
+#limpiar RAM y caché
 gc()
 rm(list=ls())
 
-#Librerias
+#Instalar Librerias
 library(ggplot2)
 library(dplyr)
 library(tidyverse)
@@ -10,13 +10,16 @@ library(readxl)
 library(lubridate)
 
 #Se cargan las bases de excel
-Bog <- read_excel("Roadmap to recovery_temp/Bogota_daily_cases.xlsx", 
-                                 sheet = "Bogota_cases", range = "E1:F50")
-View(Bog)
+##Importar base de datos desde GitHub Desktop
+Bog <- read_excel("~/GitHub/covid-transport/Bogota_daily_cases.xlsx", 
+    range = "E1:F51")
+View(Bogota_daily_cases)
+
+##Cambio de nombres de columnas por practicidad
 colnames(Bog)=c("Semana","Casos")
 
 #Crear hitos
-##Hitos iinternacionales
+##Hitos internacionales
 OMS_pandemia <- as.Date("2020-03-11")
 
 ##Hitos Nacionales
@@ -46,17 +49,17 @@ Ocup_TP50 <- as.Date("2020-04-30")
 Ocup_TP35 <- as.Date("2020-05-22")
 Ocup_TP50_rec <- as.Date("2020-08-25")
 
-#Base de Hitos
-Hitos <- data.frame(Date=c(OMS_pandemia,##Internacionales
-                           Estado_emergencia,Ais_prev_obl,COVID_friday,Vacuna_fase1,#Nacionales
-                           Calamidad_pública,Simulacro_Vital,Bog_solidaria,Ais_prev_obl_bog,Cuarentena_18loc,Lev_medidas_estrictas,Ais_sel_reapertura,Med_fin_año,Alerta_roja,##Distritales
-                           Ciclovia_22km,Ciclovia_117km,Ciclovia_76km,Protocolos_TP,Ciclovia_80km,Ocup_TP50,Ocup_TP35,Ocup_TP50_rec),##transporte
+#Creación de la Base de datos de Hitos (se puede revisar la opción de crear base de datos solo con hitos a conveniencia o armar dataframe desde acá)
+Hitos <- data.frame(Date=c(OMS_pandemia,###Internacionales (recientes al final)
+                           Estado_emergencia,Ais_prev_obl,COVID_friday,Vacuna_fase1,###Nacionales (recientes al final)
+                           Calamidad_pública,Simulacro_Vital,Bog_solidaria,Ais_prev_obl_bog,Cuarentena_18loc,Lev_medidas_estrictas,Ais_sel_reapertura,Med_fin_año,Alerta_roja,###Bogotá (recientes al final)
+                           Ciclovia_22km,Ciclovia_117km,Ciclovia_76km,Protocolos_TP,Ciclovia_80km,Ocup_TP50,Ocup_TP35,Ocup_TP50_rec),##transporte (recientes al final)
                     Event=c("OMS declara pandemia",
                             "Estado de emergencia Nacional","Aislamiento Preventivo Obligatorio Nacional","'COVID Friday'","Inicio Fase 1 de Vacunación",
                             "Bogotá declara calamidad pública","Simulacro Vital Bogotá","'Bogotá Solidaria en Casa'","Aislamiento preventivo Obligatorio para Bogotá","Cuarentena Estricta en 18 localidades de Bogotá","Levantamiento de medidas estrictas de aislamiento en Bogotá","Aislamiento selectivo y medidas de reapertura económica en Bogotá","Medidas para fin de año en Bogotá","Alerta Roja en Bogotá",
                             "22 Kilómetros de ciclovía temporal","117 Kilómetros de ciclovía temporal","76 Kilómetros de ciclovía temporal","Protocolos para Transporte Público","80 Kilómetros de ciclovía temporal","Disminución de porcentaje de ocupación en Transporte público a 50%","Disminución de porcentaje de ocupación en Transporte público a 35%","Disminución de porcentaje de ocupación en Transporte público a 50%"))
 
-#Ajustes de texto
+#Ajustes de texto para dataframe-gráfica
 baseline = min(Bog$Casos)
 delta = 0.05 * diff(range(Bog$Casos))
 Hitos$ymin = baseline
@@ -67,10 +70,10 @@ Hitos$offset <- unlist(mapply(function(l,v) {if(v){(l:1)+1}else{rep(1,l)}}, l=of
 Hitos$ymax <- Hitos$ymin + Hitos$offset * delta
 
 #Realizar el Gráfico
-##Mapa Base
+##Crear el mapa base
 base_line <- geom_line(data=Bog,aes(Semana,Casos,alpha=0.8))
 
-##Gráfico
+##Integrando el gráfico
 ggplot()+base_line+
   theme_classic()+ 
   labs(x="Semana",y="Casos semanales promedio",
@@ -85,7 +88,8 @@ ggplot()+base_line+
   guides(alpha=FALSE)
 
 
-##Graficar casos semanales
+##Grafica preliminar de casos semanales
+###Solo borrador de curva general
 ggplot(Bog, aes(x=Semana)) + 
   geom_line(aes(y=Casos)) + 
   labs(title="Curva de contagios por COVID-19", 
