@@ -12,7 +12,7 @@ library(lubridate)
 #Se cargan las bases de excel
 ##Importar base de datos desde GitHub Desktop
 Bog <- read_excel("~/GitHub/covid-transport/Bogota_daily_cases.xlsx", 
-                  range = "E1:F51")
+                  range = "E2:F52")
 View(Bog)
 
 ##Cambio de nombres de columnas por practicidad
@@ -26,7 +26,7 @@ OMS_pandemia <- as.Date("2020-03-11")
 Estado_emergencia <- as.Date("2020-03-12")
 Ais_prev_obl <- as.Date("2020-03-22")
 COVID_friday <- as.Date("2020-06-19")
-Vacuna_fase1 <- as.Date("2020-02-17")
+Vacuna_fase1 <- as.Date("2021-02-17")
 
 ##Hitos Bogotá
 Calamidad_pública <- as.Date("2020-03-17")
@@ -53,7 +53,7 @@ Ocup_TP50_rec <- as.Date("2020-08-25")
 Hitos <- data.frame(Date=c(OMS_pandemia,###Internacionales (recientes al final)
                            Estado_emergencia,Ais_prev_obl,COVID_friday,Vacuna_fase1,###Nacionales (recientes al final)
                            Calamidad_pública,Simulacro_Vital,Bog_solidaria,Ais_prev_obl_bog,Cuarentena_18loc,Lev_medidas_estrictas,Ais_sel_reapertura,Med_fin_año,Alerta_roja,###Bogotá (recientes al final)
-                           Ciclovia_22km,Ciclovia_117km,Ciclovia_76km,Protocolos_TP,Ciclovia_80km,Ocup_TP50,Ocup_TP35,Ocup_TP50_rec),##transporte (recientes al final)
+                           Ciclovia_22km,Ciclovia_117km,Ciclovia_76km,Protocolos_TP,Ciclovia_80km,Ocup_TP50,Ocup_TP35,Ocup_TP50_rec), ###transporte (recientes al final)
                     Event=c("OMS declara pandemia",
                             "Estado de emergencia Nacional","Aislamiento Preventivo Obligatorio Nacional","'COVID Friday'","Inicio Fase 1 de Vacunación",
                             "Bogotá declara calamidad pública","Simulacro Vital Bogotá","'Bogotá Solidaria en Casa'","Aislamiento preventivo Obligatorio para Bogotá","Cuarentena Estricta en 18 localidades de Bogotá","Levantamiento de medidas estrictas de aislamiento en Bogotá","Aislamiento selectivo y medidas de reapertura económica en Bogotá","Medidas para fin de año en Bogotá","Alerta Roja en Bogotá",
@@ -64,7 +64,7 @@ baseline = min(Bog$Casos)
 delta = 0.05 * diff(range(Bog$Casos))
 Hitos$ymin = baseline
 Hitos$timelapse = c(diff(Hitos$Date),Inf)
-Hitos$bump = Hitos$timelapse < 4*370 # ~4 years
+Hitos$bump = Hitos$timelapse < 4*370 #~4 años
 offsets <- rle(Hitos$bump)
 Hitos$offset <- unlist(mapply(function(l,v) {if(v){(l:1)+1}else{rep(1,l)}}, l=offsets$lengths, v=offsets$values, USE.NAMES=FALSE))
 Hitos$ymax <- Hitos$ymin + Hitos$offset * delta
