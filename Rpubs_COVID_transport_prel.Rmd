@@ -1,0 +1,122 @@
+---
+title: "Análisis de COVID y transporte en Bogotá, Buenos Aires y Washington DC"
+author: "MiguelAngel"
+date: "09/4/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+Este documento presenta de forma esquemática un análisis preliminar de la relación entre el avance de la pandemia por COVID-19 y las principales políticas relacionadas con la salud pública y el transporte en ciudades como Bogotá, Buenos Aires y Washington DC.
+
+Para ello, se utilizaron los datos de casos diarios de contagios por COVID-19 en cada una de estas ciudades, de acuerdo con las fuentes oficiales, así como el *Stringency Index* según los parámetros de la Universidad de Oxford y, finalmente, el histórico de hitos para la ciudad de Bogotá, Colombia referentes a salud pública desde el contexto global hasta el municipal, así como las medidas asociadas al transporte de la ciudad.
+
+A continuación se describe más a detalle cada uno de estos proceso de recolección de datos y procesamiento posterior en RStudio para el caso de Bogotá especificamente para ejemplificar la manera en como se replicaron para las otras dos ciudades.
+
+## Las curvas epidemiológicas
+De acuerdo con la información oficial de las páginas web de las ciudades, se recolectaron las cifras de casos diarios desde que se reportó el primer caso positivo por COVID-19 en cada una de las ciudades en particular.
+
+Estos datos de contagios diarios se promediaron semanalmente para efectos prácticos y estéticos del gráfico objetivo que se muestra más adelante.
+
+Para el caso de Bogotá, se obtuvieron los datos de [Saludata](https://saludata.saludcapital.gov.co/osb/index.php/datos-de-salud/enfermedades-trasmisibles/covid19/) principalmente y, alojandolos en este [GitHub](https://github.com/carlosfpardo/covid-transport), se realizaron las adecuaciones directamente en Excel y se cargaron a partir del siguiente código:
+```{r}
+library(readxl)
+
+Bog <- read_excel("~/GitHub/covid-transport/Bogota_daily_cases.xlsx", 
+                  range = "E2:F58")
+View(Bog)
+```
+Y posteriormente se realizaron algunas adaptaciones por cuestiones de practicidad en el manejo de las bases como el nombre de las columnas principales:
+```{r}
+colnames(Bog)=c("Semana","Casos")
+```
+
+
+## El *Stringency Index*
+
+El 
+
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+```{r cars}
+summary(cars)
+```
+
+## Including Plots
+
+You can also embed plots, for example:
+
+```{r}
+library(ggplot2)
+library(dplyr)
+library(tidyverse)
+library(readxl)
+library(lubridate)
+
+#Se cargan las bases de excel desde GitHub Desktop
+##Cargar casos promedio semanales
+Bog <- read_excel("~/GitHub/covid-transport/Bogota_daily_cases.xlsx", 
+                  range = "E2:F58")
+View(Bog)
+
+##Cargar stringency index para Colombia
+stringency_index <- read_excel("Bogota_daily_cases.xlsx", 
+                                 range = "S2:T428")
+View(stringency_index)
+
+##Cargar hitos legislación y transporte en Colombia
+Hitos <- read_excel("Bogota_daily_cases.xlsx", 
+                                 range = "H2:L24")
+
+View(Hitos)
+
+##Cambio de nombres de columnas por practicidad
+colnames(Bog)=c("Semana","Casos")
+colnames(stringency_index)=c("Dia","Index")
+colnames(Hitos)=c("Fecha","Clase","Entidad","Hito","Altura")
+
+#Ajustes de de base de hitos dataframe-gráfica
+baseline = min(Bog$Casos)
+delta = 0.05 * diff(range(Bog$Casos))
+Hitos$ymin = baseline
+Hitos$timelapse = c(diff(Hitos$Fecha),2020-03-01)
+Hitos$bump = Hitos$timelapse < 2*370 #~2 años
+offsets <- rle(Hitos$bump)
+Hitos$offset <- unlist(mapply(function(l,v) {if(v){(l:1)+1}else{rep(1,l)}}, l=offsets$lengths, v=offsets$values, USE.NAMES=FALSE))
+Hitos$ymax <- Hitos$Altura
+
+Hitos$ymin + Hitos$offset * delta
+
+#Realizar el Gráfico
+
+##Crear el mapa base
+base_line <- geom_line(data=Bog,aes(Semana,Casos,alpha=0.8))
+
+##Integrar Stringency Index de Oxford
+stringency <- geom_bar(data=stringency_index,stat="identity",aes(Dia,max(Bog$Casos),fill=Index))
+
+##Integrando el gráfico
+Bog_Hitos <- ggplot() + stringency + base_line + theme_classic() + scale_fill_viridis_c("Stringency Index
+      Colombia",begin=0.4,end=1,option="magma",aesthetics = "fill") + # escala del mapa de stringency
+  labs(x="Semana",y="Casos semanales promedio",
+       title="Curva de contagios por COVID-19",
+       subtitle="Casos promedio semanales en Bogotá, Colombia",
+       caption=("Fuente de datos: saludata.saludcapital.gov.co")) + ###labels
+  #scale_x_date(date_breaks = "1 month",date_labels="%b %y",limits=c(as.Date("2020-03-01"),as.Date("2021-04-01"))) + # change x axis scale
+  scale_y_continuous(limits=c(-4300,5400)) + # change y axis scale
+  geom_segment(data = Hitos, mapping=aes(x=Fecha, y=ymin, xend=Fecha, yend=ymax)) + ###Agregar lineas de Hitos
+  geom_point(data = Hitos, mapping=aes(x=Fecha,y=ymax), size=1.2) + ###Agregar puntos de hitos
+  geom_text(data = Hitos, mapping=aes(x=Fecha, y=ymax, label=Hito), hjust=-0.01, vjust=0.5, size=2.8)+ ###Agregar leyendas de hitos
+  guides(alpha=FALSE)
+```
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+```{r pressure, echo=FALSE}
+plot (Bog_Hitos)
+```
+
