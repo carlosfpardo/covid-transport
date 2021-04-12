@@ -1,6 +1,6 @@
 ---
 title: "Análisis de COVID y transporte en Bogotá, Buenos Aires y Washington DC"
-author: "MiguelAngel"
+author: "Miguel Angel Cuéllar"
 date: "09/4/2021"
 output: html_document
 ---
@@ -15,48 +15,94 @@ Para ello, se utilizaron los datos de casos diarios de contagios por COVID-19 en
 
 A continuación se describe más a detalle cada uno de estos proceso de recolección de datos y procesamiento posterior en RStudio para el caso de Bogotá especificamente para ejemplificar la manera en como se replicaron para las otras dos ciudades.
 
-## Las curvas epidemiológicas
+### Las curvas epidemiológicas
 De acuerdo con la información oficial de las páginas web de las ciudades, se recolectaron las cifras de casos diarios desde que se reportó el primer caso positivo por COVID-19 en cada una de las ciudades en particular.
 
 Estos datos de contagios diarios se promediaron semanalmente para efectos prácticos y estéticos del gráfico objetivo que se muestra más adelante.
 
 Para el caso de Bogotá, se obtuvieron los datos de [Saludata](https://saludata.saludcapital.gov.co/osb/index.php/datos-de-salud/enfermedades-trasmisibles/covid19/) principalmente y, alojandolos en este [GitHub](https://github.com/carlosfpardo/covid-transport), se realizaron las adecuaciones directamente en Excel y se cargaron a partir del siguiente código:
-```{r}
-library(readxl)
-
+```{r, results='hide', message=FALSE, eval=FALSE}
 Bog <- read_excel("~/GitHub/covid-transport/Bogota_daily_cases.xlsx", 
                   range = "E2:F58")
 View(Bog)
 ```
 Y posteriormente se realizaron algunas adaptaciones por cuestiones de practicidad en el manejo de las bases como el nombre de las columnas principales:
-```{r}
+```{r, eval=FALSE}
 colnames(Bog)=c("Semana","Casos")
 ```
 
+### El *Stringency Index*
 
-## El *Stringency Index*
+Uno de los índices estudiados por la Universidad de Oxford es el *Stringency Index* que mide el nivel de medidas restrictivas en medio de la pandemia asociado a un amplio número de variables al rededor de las políticas públicas en los diferentes paises. En ese sentido, es importante aclarar que para las ciudades de Bogotá y Buenos Aires se tomó como referencia los indices de Colombia y Argentina, respectivamente, ya que en la fuente oficial de dicho indice se tiene los datos por paises, y solo para el caso de Washington DC se pudieron tomar los datos directamente de la ciudad.
 
-El 
+Teniendo en cuenta esto, se compilaron los datos para cada caso en Excel y se adecuaron a conveniencia mediante el código
 
+```{r, eval=FALSE}
+stringency_index <- read_excel("Bogota_daily_cases.xlsx", 
+                                 range = "S2:T428")
+View(stringency_index)
 
-This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
-
-When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
-
-```{r cars}
-summary(cars)
+colnames(stringency_index)=c("Dia","Index")
+```
+Y, posteriormente se integraron en el gráfico a partir de lo siguiente:
+```{r, eval=FALSE}
+stringency <- geom_bar(data=stringency_index,stat="identity",aes(Dia,max(Bog$Casos),fill=Index))
 ```
 
-## Including Plots
 
-You can also embed plots, for example:
+### Hitos relacionados con la pandemia (solo para Bogotá)
 
-```{r}
+Finalmente, la última variable tenida en cuenta para el análisis fueron los hitos, tanto en políticas relacionadas con salud pública como con transporte, que se fueron consolidando a medida que avanzaba la pandemia en el contexto de Bogotá (aunque replicable para las demás ciudades).
+
+Para este caso, luego de llamar los datos correspondientes de Excel, se realizó el tratamiento respectivo para integrarlos al gráfico posteriormente:
+```{r, eval=FALSE}
+Hitos <- read_excel("Bogota_daily_cases.xlsx", 
+                                 range = "H2:L24")
+
+View(Hitos)
+colnames(Hitos)=c("Fecha","Clase","Entidad","Hito","Altura")
+
+#Ajustes de de base de hitos dataframe-gráfica
+baseline = min(Bog$Casos)
+delta = 0.05 * diff(range(Bog$Casos))
+Hitos$ymin = baseline
+Hitos$timelapse = c(diff(Hitos$Fecha),2020-03-01)
+Hitos$bump = Hitos$timelapse < 2*370 #~2 años
+offsets <- rle(Hitos$bump)
+Hitos$offset <- unlist(mapply(function(l,v) {if(v){(l:1)+1}else{rep(1,l)}}, l=offsets$lengths, v=offsets$values, USE.NAMES=FALSE))
+Hitos$ymax <- Hitos$Altura
+
+Hitos$ymin + Hitos$offset * delta
+```
+
+## Gráfica Resultado
+
+#### Bogotá D. C.,Colombia
+Luego de haber configurado los hitos, se integraron estos aspectos llamando a la librería de `ggplot2` y a partir de esto se configuró así:
+```{r, eval=FALSE}
+##Crear el mapa base
+base_line <- geom_line(data=Bog,aes(Semana,Casos,alpha=0.8))
+
+##Integrando el gráfico
+ggplot() + stringency + base_line + theme_classic() + scale_fill_viridis_c("Stringency Index
+      Colombia",begin=0.4,end=1,option="magma",aesthetics = "fill") + # escala del mapa de stringency
+  labs(x="Semana",y="Casos semanales promedio",
+       title="Curva de contagios por COVID-19",
+       subtitle="Casos promedio semanales en Bogotá, Colombia",
+       caption=("Fuente de datos: saludata.saludcapital.gov.co")) + ###labels
+  scale_y_continuous(limits=c(-4300,5400)) + # change y axis scale
+  geom_segment(data = Hitos, mapping=aes(x=Fecha, y=ymin, xend=Fecha, yend=ymax)) + ###Agregar lineas de Hitos
+  geom_point(data = Hitos, mapping=aes(x=Fecha,y=ymax), size=1.2) + ###Agregar puntos de hitos
+  geom_text(data = Hitos, mapping=aes(x=Fecha, y=ymax, label=Hito), hjust=-0.01, vjust=0.5, size=2.8)+ ###Agregar leyendas de hitos
+  guides(alpha=FALSE)
+```
+
+De aquí, se obtuvo el siguiente gráfico
+
+
+```{r, warning=FALSE, message=FALSE, results='hide', echo=FALSE, fig.height=8, fig.width=12, fig.align='center'}
 library(ggplot2)
-library(dplyr)
-library(tidyverse)
 library(readxl)
-library(lubridate)
 
 #Se cargan las bases de excel desde GitHub Desktop
 ##Cargar casos promedio semanales
@@ -113,10 +159,102 @@ Bog_Hitos <- ggplot() + stringency + base_line + theme_classic() + scale_fill_vi
   geom_point(data = Hitos, mapping=aes(x=Fecha,y=ymax), size=1.2) + ###Agregar puntos de hitos
   geom_text(data = Hitos, mapping=aes(x=Fecha, y=ymax, label=Hito), hjust=-0.01, vjust=0.5, size=2.8)+ ###Agregar leyendas de hitos
   guides(alpha=FALSE)
-```
 
-Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
-```{r pressure, echo=FALSE}
 plot (Bog_Hitos)
 ```
+
+#### Buenos Aires, Argentina
+
+De la misma manera, pero sin los hitos principales, se replica el análisis para la ciudad de Buenos Aires de Argentina, dando como resultado la siguiente gráfica:
+
+```{r, warning=FALSE, message=FALSE, results='hide', echo=FALSE, fig.height=8, fig.width=12, fig.align='center'}
+#Se cargan las bases de excel desde GitHub Desktop
+##Cargar casos promedio semanales en Buenos Aires
+BA <- read_excel("~/GitHub/covid-transport/Bogota_daily_cases.xlsx", 
+                 sheet = "BA_cases", range = "E2:F60")
+View(BA)
+
+##Cargar stringency index para Argentina
+stringency_index <- read_excel("~/GitHub/covid-transport/Bogota_daily_cases.xlsx", 
+                     sheet = "BA_cases", range = "H2:I443")
+View(stringency_index)
+
+##Cargar hitos legislación y transporte en Argentinas y Buenos Aires
+
+##Cambio de nombres de columnas por practicidad
+colnames(BA)=c("Semana","Casos")
+colnames(stringency_index)=c("Dia","Index")
+
+#Realizar el Gráfico
+
+##Crear el mapa base
+base_line <- geom_line(data=BA,aes(Semana,Casos,alpha=0.8))
+
+##Integrar Stringency Index de Oxford
+stringency <- geom_bar(data=stringency_index,stat="identity",aes(Dia,max(BA$Casos),fill=Index))
+
+##Integrando el gráfico
+ggplot() + stringency + base_line + theme_classic() + scale_fill_viridis_c("Stringency Index
+      Argentina",begin=0.4,end=1,option="magma",aesthetics = "fill") + # escala del mapa de stringency
+  labs(x="Semana",y="Casos semanales promedio",
+       title="Curva de contagios por COVID-19",
+       subtitle="Casos promedio semanales en Buenos Aires, Argentina",
+       caption=("Fuente de datos: buenosaires.gob.ar")) + ###labels
+  guides(alpha=FALSE)
+
+```
+
+
+#### Washington D.C., Estados Unidos de América
+
+De la misma manera, pero sin los hitos principales, se replica el análisis para la ciudad de Washington D.C. de EE.UU., dando como resultado la siguiente gráfica:
+
+```{r, warning=FALSE, message=FALSE, results='hide', echo=FALSE, fig.height=8, fig.width=12, fig.align='center'}
+#Se cargan las bases de excel desde GitHub Desktop
+##Cargar casos promedio semanales en Buenos Aires
+WDC <- read_excel("~/GitHub/covid-transport/Bogota_daily_cases.xlsx", 
+                 sheet = "Washington_DC_cases", range = "E2:F60")
+View(WDC)
+
+##Cargar stringency index para Argentina
+stringency_index <- read_excel("~/GitHub/covid-transport/Bogota_daily_cases.xlsx", 
+                               sheet = "Washington_DC_cases", range = "H2:I464")
+View(stringency_index)
+
+##Cargar hitos legislación y transporte en Argentinas y Buenos Aires
+
+##Cambio de nombres de columnas por practicidad
+colnames(WDC)=c("Semana","Casos")
+colnames(stringency_index)=c("Dia","Index")
+
+#Realizar el Gráfico
+
+##Crear el mapa base
+base_line <- geom_line(data=WDC,aes(Semana,Casos,alpha=0.8))
+
+##Integrar Stringency Index de Oxford
+stringency <- geom_bar(data=stringency_index,stat="identity",aes(Dia,max(WDC$Casos),fill=Index))
+
+##Integrando el gráfico
+ggplot() + stringency + base_line + theme_classic() + scale_fill_viridis_c("Stringency Index
+      Washington D.C.",begin=0.4,end=1,option="magma",aesthetics = "fill") + # escala del mapa de stringency
+  labs(x="Semana",y="Casos semanales promedio",
+       title="Curva de contagios por COVID-19",
+       subtitle="Casos promedio semanales en Washington D.C., EE.UU.",
+       caption=("Fuente de datos: coronavirus.dc.gov")) + ###labels
+  guides(alpha=FALSE)
+
+```
+
+
+###### *Fuentes de datos*
+Las principales fuentes de datos  fueron las páginas web oficiales de cada ciudad, junto con la ya citada página de la [Universidad de Oxford](https://www.bsg.ox.ac.uk/research/research-projects/covid-19-government-response-tracker) para el *Stringency Index*:
+  
+  1. [Bogotá D. C., Colombia](https://saludata.saludcapital.gov.co/osb/index.php/datos-de-salud/enfermedades-trasmisibles/covid19/)
+  
+  2. [Buenos Aires, Argentina](https://www.buenosaires.gob.ar/coronavirus/datos/situacion-epidemiologica)
+  
+  3. [Washington D. C., EE.UU.](https://microstrategy.dc.gov/MicroStrategyLibrary/app/E52A533B11EA01A28FE80080EFC53DA4/30FE682111EA6FB5A6620080EF357B1F/WAC15308F873B43F3883EEB1FEF891057--K46)
+
+Adicionalmente, para datos más específicos puede consultar [esta hoja de cálculo](https://docs.google.com/spreadsheets/d/1iv-7A7EtICOdX0LQv-N-4CKE4aP0Phex1oMwZolhtS0/edit?usp=sharing). Allí se diferencian las diferentes fuentes oficiales tanto principales como de apoyo o alternativas de todos los datos recolectados.
 
