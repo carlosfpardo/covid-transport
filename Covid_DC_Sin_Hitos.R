@@ -36,7 +36,7 @@ stringency <- geom_bar(data=stringency_index,stat="identity",aes(Dia,max(WDC$Cas
 
 ##Integrando el gráfico
 ggplot() + stringency + base_line + theme_classic() + scale_fill_viridis_c("Stringency Index
-      Washington D.C.",begin=0.4,end=1,option="magma",aesthetics = "fill") + # escala del mapa de stringency
+      Washington D.C.",begin=0.4,end=1,option="magma",direction=-1,aesthetics = "fill") + # escala del mapa de stringency
   labs(x="Semana",y="Casos semanales promedio",
        title="Curva de contagios por COVID-19",
        subtitle="Casos promedio semanales en Washington D.C., EE.UU.",
