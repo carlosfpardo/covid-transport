@@ -23,7 +23,6 @@ View(stringency_index)
 ##Cargar hitos legislación y transporte en Colombia
 Hitos <- read_excel("Bogota_daily_cases.xlsx", 
                                  range = "H2:L24")
-
 View(Hitos)
 
 ##Cambio de nombres de columnas por practicidad
@@ -53,7 +52,7 @@ stringency <- geom_bar(data=stringency_index,stat="identity",aes(Dia,max(Bog$Cas
 
 ##Integrando el gráfico
 ggplot() + stringency + base_line + theme_classic() + scale_fill_viridis_c("Stringency Index
-      Colombia",begin=0.4,end=1,option="magma",aesthetics = "fill") + # escala del mapa de stringency
+      Colombia",begin=0.4,end=1,option="magma",direction=-1,aesthetics = "fill") + # escala del mapa de stringency
   labs(x="Semana",y="Casos semanales promedio",
        title="Curva de contagios por COVID-19",
        subtitle="Casos promedio semanales en Bogotá, Colombia",
@@ -61,7 +60,7 @@ ggplot() + stringency + base_line + theme_classic() + scale_fill_viridis_c("Stri
   #scale_x_date(date_labels="%b %y",date_breaks = "1 month",limits=c(as.Date("2020-03-01"),as.Date("2021-05-01")))+
   scale_y_continuous(limits=c(-4300,5400)) + # change y axis scale
   geom_segment(data = Hitos, mapping=aes(x=Fecha, y=ymin, xend=Fecha, yend=ymax)) + ###Agregar lineas de Hitos
-  geom_point(data = Hitos, mapping=aes(x=Fecha,y=ymax, col=Clase), size=1.2) + ###Agregar puntos de hitos
+  geom_point(data = Hitos, mapping=aes(x=Fecha,y=ymax), size=1.2) + ###Agregar puntos de hitos
   geom_text(data = Hitos, mapping=aes(x=Fecha, y=ymax, label=Hito), hjust=-0.01, vjust=0.5, size=2.8)+ ###Agregar leyendas de hitos
   guides(alpha=FALSE)
 
@@ -88,5 +87,8 @@ ggplot(Bog, aes(x=Semana)) +
        caption="Fuente de datos: saludata.saludcapital.gov.co", 
        y="Casos semanales promedio", 
        color=NULL) +
+  scale_x_date(date_labels="%b %y",date_breaks = "1 month",limits=c(as.Date("2020-03-01"),as.Date("2021-05-01")))+
   theme(axis.text.x = element_text(angle = 90, vjust=0.5, size = 8), 
         panel.grid.minor = element_blank())
+
+#scale_color_gradient
