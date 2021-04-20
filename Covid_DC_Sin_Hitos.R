@@ -5,9 +5,7 @@ rm(list=ls())
 #Instalar Librerias
 library(ggplot2)
 library(dplyr)
-library(tidyverse)
 library(readxl)
-library(lubridate)
 
 #Se cargan las bases de excel desde GitHub Desktop
 ##Cargar casos promedio semanales en Buenos Aires
@@ -42,3 +40,22 @@ ggplot() + stringency + base_line + theme_classic() + scale_fill_viridis_c("Stri
        subtitle="Casos promedio semanales en Washington D.C., EE.UU.",
        caption=("Fuente de datos: coronavirus.dc.gov")) + ###labels
   guides(alpha=FALSE)
+
+##Ahora con google mobility
+###Cargando la base
+Google_mob <- read_excel("~/GitHub/covid-transport/Bogota_daily_cases.xlsx", 
+                         sheet = "Washington_DC_cases", range = "H2:J454", col_types=c("date","skip","numeric"))
+View(Google_mob)
+
+###Integrar el indice de restricción de movilidad de Google para el caso de tiendas
+mobility_index <- geom_bar(data=Google_mob,stat="identity",aes(Dia,max(WDC$Casos),fill=Google_index))
+
+###Integrando el gráfico
+ggplot() + mobility_index + base_line + theme_classic() + scale_fill_viridis_c("Google mobility Index
+        Washington D.C.",begin=0.4,end=1,option="magma",aesthetics = "fill") + # escala del mapa de stringency
+  labs(x="Semana",y="Casos semanales promedio",
+       title="Curva de contagios por COVID-19",
+       subtitle="Casos promedio semanales en Washington D.C., EE.UU.",
+       caption=("Fuente de datos: coronavirus.dc.gov")) + ###labels
+  guides(alpha=FALSE)
+
