@@ -1,6 +1,6 @@
 ---
 title: "Análisis de COVID y transporte en Bogotá, Buenos Aires y Washington DC"
-author: "Miguel Angel Cuéllar"
+author: "Miguel Ángel Cuéllar"
 date: "09/4/2021"
 output: html_document
 ---
@@ -14,6 +14,74 @@ Este documento presenta de forma esquemática un análisis preliminar de la rela
 Para ello, se utilizaron los datos de casos diarios de contagios por COVID-19 en cada una de estas ciudades, de acuerdo con las fuentes oficiales, así como el *Stringency Index* según los parámetros de la Universidad de Oxford y, finalmente, el histórico de hitos para la ciudad de Bogotá, Colombia referentes a salud pública desde el contexto global hasta el municipal, así como las medidas asociadas al transporte de la ciudad.
 
 A continuación se describe más a detalle cada uno de estos proceso de recolección de datos y procesamiento posterior en RStudio para el caso de Bogotá especificamente para ejemplificar la manera en como se replicaron para las otras dos ciudades.
+
+# Gráfico objetivo
+
+```{r, warning=FALSE, message=FALSE, results='hide', echo=FALSE, fig.height=8, fig.width=12, fig.align='center'}
+#limpiar RAM y caché
+gc()
+rm(list=ls())
+
+#Instalar Librerias
+library(ggplot2)
+library(dplyr)
+library(readxl)
+library(viridis)
+library("colorspace")
+
+#Se cargan las bases de excel desde GitHub Desktop
+##Cargar casos promedio semanales y Stringency Index
+Bog <- read_excel("~/GitHub/covid-transport/Bogota_daily_cases.xlsx", 
+                  range = "H2:K60", col_types=c("date","numeric","numeric","numeric"))
+
+###Cargar hitos legislación y transporte en Colombia
+Hitos <- read_excel("~/GitHub/covid-transport/Bogota_daily_cases.xlsx", 
+                    range = "N2:T24", col_types=c("date","text","text","text","skip","numeric","numeric"))
+View(Hitos)
+
+##Cambio de nombres de columnas por practicidad
+colnames(Bog)=c("Dia","Casos","Muertes","Index")
+colnames(Hitos)=c("Fecha","Clase","Entidad","Hito","Inicio","Altura")
+
+str(Bog)
+str(Hitos)
+
+###Ajustes de de base de hitos dataframe-gráfica
+baseline = min(Bog$Muertes)
+delta = 0.05 * diff(range(Bog$Muertes))
+Hitos$ymin = baseline
+Hitos$timelapse = c(diff(Hitos$Fecha),2020-03-01)
+Hitos$bump = Hitos$timelapse < 2*370 #~2 años
+offsets <- rle(Hitos$bump)
+Hitos$offset <- unlist(mapply(function(l,v) {if(v){(l:1)+1}else{rep(1,l)}}, l=offsets$lengths, v=offsets$values, USE.NAMES=FALSE))
+Hitos$ymax <- Hitos$Altura
+Hitos$ymin + Hitos$offset * delta
+
+###Crear curva de casos con Stringency Index
+base_line <- geom_line(data=Bog,aes(Dia,Muertes,colour=Index), size = 2)
+
+###Crear el label de los hitos con fecha
+my_xlab <- paste(Hitos$Hito,"\n",Hitos$Fecha,sep="")
+
+###Integrando el gráfico de muertes
+ggplot() + base_line + theme_minimal() + # escala del mapa de stringency
+  labs(x="Fecha",y="Muertes semanales promedio",
+       title="Curva de fallecidos por COVID-19",
+       subtitle="Muertes promedio semanales en Bogotá, Colombia",
+       color = "Stringency Index
+      Colombia",
+       caption=("Fuente de datos: saludata.saludcapital.gov.co")) + ###labels
+
+  scale_color_gradientn(colors = c("#ADF84E", "#CCEE18", "#E2DF00", "#EECB00", "#F2B300", "#EE9700",
+                                   "#E37830", "#D15544", "#B9264E", "#A00052"),limits = c(0,100)) +
+  scale_y_continuous(limits=c(-80,110)) + # change y axis scale
+  geom_segment(data = Hitos, mapping=aes(x=Fecha, y=Inicio, xend=Fecha, yend=ymax)) + ###Agregar lineas de Hitos
+  geom_point(data = Hitos, mapping=aes(x=Fecha,y=ymax), size=1.2) + ###Agregar puntos de hitos
+  geom_text(data = Hitos, mapping=aes(x=Fecha, y=ymax, label=my_xlab), hjust=-0.01, vjust=0.5, size=2.8) + ###Agregar leyendas de hitos
+  guides(alpha=FALSE)
+
+```
+
 
 ### Las curvas epidemiológicas
 De acuerdo con la información oficial de las páginas web de las ciudades, se recolectaron las cifras de casos diarios desde que se reportó el primer caso positivo por COVID-19 en cada una de las ciudades en particular.
