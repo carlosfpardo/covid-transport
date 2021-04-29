@@ -57,7 +57,7 @@ ggplot() + base_line + theme_minimal() + # escala del mapa de stringency
   scale_y_continuous(limits=c(-4300,5400)) + # change y axis scale
   geom_segment(data = Hitos, mapping=aes(x=Fecha, y=ymin, xend=Fecha, yend=ymax)) + ###Agregar lineas de Hitos
   geom_point(data = Hitos, mapping=aes(x=Fecha,y=ymax), size=1.2) + ###Agregar puntos de hitos
-  geom_text(data = Hitos, mapping=aes(x=Fecha, y=ymax, label=my_xlab, col=Fase), hjust=-0.01, vjust=0.5, size=2.8)+ ###Agregar leyendas de hitos
+  geom_text(data = Hitos, mapping=aes(x=Fecha, y=ymax, label=my_xlab), hjust=-0.01, vjust=0.5, size=2.8)+ ###Agregar leyendas de hitos
   guides(alpha=FALSE)
 
 ##Para el caso de muertes promedio semanales
@@ -85,7 +85,13 @@ Hitos$ymin + Hitos$offset * delta
 base_line <- geom_line(data=Bog,aes(Dia,Muertes,colour=Index), size = 2)
 
 ###Crear el label de los hitos con fecha
-my_xlab <- paste(Hitos$Hito,"\n",Hitos$Fecha,sep="")
+hitos_lab <- paste(Hitos$Hito,"\n",Hitos$Fecha,sep="")
+
+###Creando texto de colores según fase
+Hitos_text <- ggplot() + geom_text(data = Hitos, mapping=aes(x=Fecha, y=ymax, label= "~underline('hitos_lab')"), hjust=-0.01, vjust=0.5, size=2.8) +
+  scale_colour_manual(values=c('1'="#FFD8A2", '2'="#FAB875", '3'="#E19438", '4'="#C56F00",
+                               '5'="#A4C6FF", '6'="#40A2FF", '7'="#006BFF"))
+plot(Hitos_text)
 
 ###Integrando el gráfico de muertes
   ggplot() + base_line + theme_minimal() + # escala del mapa de stringency
@@ -99,14 +105,15 @@ my_xlab <- paste(Hitos$Hito,"\n",Hitos$Fecha,sep="")
   scale_y_continuous(limits=c(-60,110)) + # change y axis scale
   geom_segment(data = Hitos, mapping=aes(x=Fecha, y=Inicio, xend=Fecha, yend=ymax)) + ###Agregar lineas de Hitos
   geom_point(data = Hitos, mapping=aes(x=Fecha,y=ymax), size=1.2) + ###Agregar puntos de hitos
-  geom_text(data = Hitos, mapping=aes(x=Fecha, y=ymax, label=my_xlab), hjust=-0.01, vjust=0.5, size=2.8, angle=90)+ ###Agregar leyendas de hitos
+  geom_text(data = Hitos, mapping=aes(x=Fecha, y=ymax, label=hitos_lab), hjust=-0.01, vjust=0.5, size=2.8)+ ###Agregar leyendas de hitos
   guides(alpha=FALSE)
 
 ###test
 ggplot()+ theme_minimal() +
   geom_segment(data = Hitos, mapping=aes(x=Fecha, y=ymin, xend=Fecha, yend=ymax)) + ###Agregar lineas de Hitos
   geom_point(data = Hitos, mapping=aes(x=Fecha,y=ymax), size=1.2) + ###Agregar puntos de hitos
-  geom_text(data = Hitos, mapping=aes(x=Fecha, y=ymax, label=my_xlab, col=Clase), hjust=-0.01, vjust=0.5, size=2.8, angle=90)+ ###Agregar leyendas de hitos
+  geom_text(data = Hitos, mapping=aes(x=Fecha, y=ymax, label=my_xlab, col=Fase), hjust=-0.01, vjust=0.5, size=2.8, angle=90)+ ###Agregar leyendas de hitos
+  scale_color_gradientn(colors = c("#FFD8A2", "#FAB875", "#E19438", "#C56F00", "#A4C6FF", "#40A2FF", "#006BFF"),limits = c(0,7))+
   guides(alpha=FALSE)
 
 
@@ -142,6 +149,12 @@ ggplot() + base_line + theme_minimal() +
 
 ###Configuración de escala cromática
 pal <- choose_palette()
-pal(10)
-
-
+pal(4)
+####Escala de naranja para fase
+#colors = c("#FFD8A2", "#FAB875", "#E19438", "#C56F00")
+####Escala de azules para fase
+#colors = c("#A4C6FF", "#40A2FF", "#006BFF")
+###Subrayar texto
+#label = "~underline('Country')"
+help("geom_text")
+??geom_text_repel
