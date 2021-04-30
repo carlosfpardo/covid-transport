@@ -8,6 +8,8 @@ library(dplyr)
 library(readxl)
 library(viridis)
 library("colorspace")
+install.packages("ggnewscale")
+library(ggnewscale)
 
 #Se cargan las bases de excel desde GitHub Desktop
 ##Cargar casos promedio semanales y Stringency Index
@@ -87,14 +89,8 @@ base_line <- geom_line(data=Bog,aes(Dia,Muertes,colour=Index), size = 2)
 ###Crear el label de los hitos con fecha
 hitos_lab <- paste(Hitos$Hito,"\n",Hitos$Fecha,sep="")
 
-###Creando texto de colores según fase
-Hitos_text <- ggplot() + geom_text(data = Hitos, mapping=aes(x=Fecha, y=ymax, label= "~underline('hitos_lab')"), hjust=-0.01, vjust=0.5, size=2.8) +
-  scale_colour_manual(values=c('1'="#FFD8A2", '2'="#FAB875", '3'="#E19438", '4'="#C56F00",
-                               '5'="#A4C6FF", '6'="#40A2FF", '7'="#006BFF"))
-plot(Hitos_text)
-
 ###Integrando el gráfico de muertes
-  ggplot() + base_line + theme_minimal() + # escala del mapa de stringency
+ggplot() + base_line + theme_minimal() + # escala del mapa de stringency
   labs(x="Fecha",y="Muertes semanales promedio",
        title="Curva de fallecidos por COVID-19",
        subtitle="Muertes promedio semanales en Bogotá, Colombia",
@@ -104,20 +100,14 @@ plot(Hitos_text)
   scale_color_gradientn(colors = c("#ADF84E", "#CCEE18", "#E2DF00", "#EECB00", "#F2B300", "#EE9700", "#E37830", "#D15544", "#B9264E", "#A00052"),limits = c(0,100))+
   scale_y_continuous(limits=c(-60,110)) + # change y axis scale
   geom_segment(data = Hitos, mapping=aes(x=Fecha, y=Inicio, xend=Fecha, yend=ymax)) + ###Agregar lineas de Hitos
-  geom_point(data = Hitos, mapping=aes(x=Fecha,y=ymax), size=1.2) + ###Agregar puntos de hitos
-  geom_text(data = Hitos, mapping=aes(x=Fecha, y=ymax, label=hitos_lab), hjust=-0.01, vjust=0.5, size=2.8)+ ###Agregar leyendas de hitos
+  geom_point(data = Hitos, mapping=aes(x=Fecha,y=ymax, shape=Clase), size=2) + ###Agregar puntos de hitos
+  new_scale_color() +
+  geom_text(data = Hitos, mapping=aes(x=Fecha, y=ymax, label=hitos_lab, color = Fase), hjust=-0.01, vjust=0.5, size=2.8)+ ###Agregar leyendas de hitos
+  scale_colour_manual(breaks=c("A-","B-","C-","D","C+","B+","A+"),
+                      values=c('A-'="#FFD8A2", 'B-'="#FAB875", 'C-'="#E19438", 'D'="#C56F00",
+                               'C+'="#A4C6FF", 'B+'="#40A2FF", 'A+'="#006BFF")) +
+  labs(color = "Fase Recovery", shape = "Tipo de acción") +
   guides(alpha=FALSE)
-
-###test
-ggplot()+ theme_minimal() +
-  geom_segment(data = Hitos, mapping=aes(x=Fecha, y=ymin, xend=Fecha, yend=ymax)) + ###Agregar lineas de Hitos
-  geom_point(data = Hitos, mapping=aes(x=Fecha,y=ymax), size=1.2) + ###Agregar puntos de hitos
-  geom_text(data = Hitos, mapping=aes(x=Fecha, y=ymax, label=my_xlab, col=Fase), hjust=-0.01, vjust=0.5, size=2.8, angle=90)+ ###Agregar leyendas de hitos
-  scale_color_gradientn(colors = c("#FFD8A2", "#FAB875", "#E19438", "#C56F00", "#A4C6FF", "#40A2FF", "#006BFF"),limits = c(0,7))+
-  guides(alpha=FALSE)
-
-
-
 
 ##Ahora con Google Mobility
 ###Cargando la base
@@ -154,7 +144,3 @@ pal(4)
 #colors = c("#FFD8A2", "#FAB875", "#E19438", "#C56F00")
 ####Escala de azules para fase
 #colors = c("#A4C6FF", "#40A2FF", "#006BFF")
-###Subrayar texto
-#label = "~underline('Country')"
-help("geom_text")
-??geom_text_repel
