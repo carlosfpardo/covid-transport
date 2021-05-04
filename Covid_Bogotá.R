@@ -62,6 +62,26 @@ ggplot() + base_line + theme_minimal() + # escala del mapa de stringency
   geom_text(data = Hitos, mapping=aes(x=Fecha, y=ymax, label=my_xlab), hjust=-0.01, vjust=0.5, size=2.8)+ ###Agregar leyendas de hitos
   guides(alpha=FALSE)
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 ##Para el caso de muertes promedio semanales
 ###Cargar hitos legislación y transporte en Colombia
 Hitos <- read_excel("~/GitHub/covid-transport/Bogota_daily_cases.xlsx", 
@@ -108,6 +128,27 @@ ggplot() + base_line + theme_minimal() + # escala del mapa de stringency
                                'C+'="#A4C6FF", 'B+'="#40A2FF", 'A+'="#006BFF")) +
   labs(color = "Fase Recovery", shape = "Tipo de acción") +
   guides(alpha=FALSE)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 ##Ahora con Google Mobility
 ###Cargando la base
