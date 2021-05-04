@@ -151,27 +151,6 @@ Hitos$ymin + Hitos$offset * delta
 
 #### Bogotá D. C.,Colombia
 Luego de haber configurado los hitos, se integraron estos aspectos llamando a la librería de `ggplot2` y a partir de esto se configuró así:
-```{r, eval=FALSE}
-##Crear el mapa base
-base_line <- geom_line(data=Bog,aes(Semana,Casos,alpha=0.8))
-
-##Integrando el gráfico
-ggplot() + stringency + base_line + theme_classic() + scale_fill_viridis_c("Stringency Index
-      Colombia",begin=0.4,end=1,option="magma",aesthetics = "fill") + # escala del mapa de stringency
-  labs(x="Semana",y="Casos semanales promedio",
-       title="Curva de contagios por COVID-19",
-       subtitle="Casos promedio semanales en Bogotá, Colombia",
-       caption=("Fuente de datos: saludata.saludcapital.gov.co")) + ###labels
-  scale_y_continuous(limits=c(-4300,5400)) + # change y axis scale
-  geom_segment(data = Hitos, mapping=aes(x=Fecha, y=ymin, xend=Fecha, yend=ymax)) + ###Agregar lineas de Hitos
-  geom_point(data = Hitos, mapping=aes(x=Fecha,y=ymax), size=1.2) + ###Agregar puntos de hitos
-  geom_text(data = Hitos, mapping=aes(x=Fecha, y=ymax, label=Hito), hjust=-0.01, vjust=0.5, size=2.8)+ ###Agregar leyendas de hitos
-  guides(alpha=FALSE)
-```
-
-De aquí, se obtuvo el siguiente gráfico
-
-
 ```{r, warning=FALSE, message=FALSE, results='hide', echo=FALSE, fig.height=8, fig.width=12, fig.align='center'}
 #limpiar RAM y caché
 gc()
@@ -183,25 +162,28 @@ library(dplyr)
 library(readxl)
 library(viridis)
 library("colorspace")
+library(ggnewscale)
 
 #Se cargan las bases de excel desde GitHub Desktop
 ##Cargar casos promedio semanales y Stringency Index
 Bog <- read_excel("~/GitHub/covid-transport/Bogota_daily_cases.xlsx", 
-                  range = "E2:G60", col_types=c("date","numeric","numeric"))
-View(Bog)
+                  range = "H2:K60", col_types=c("date","numeric","numeric","numeric"))
 
-##Cargar hitos legislación y transporte en Colombia
+###Cargar hitos legislación y transporte en Colombia
 Hitos <- read_excel("~/GitHub/covid-transport/Bogota_daily_cases.xlsx", 
-                    range = "J2:N24", col_types=c("date","text","text","text","numeric"))
-View(Hitos)
+                    range = "N2:U24",
+                    col_types=c("date","text","text","text","text","skip","numeric","numeric"))
 
 ##Cambio de nombres de columnas por practicidad
-colnames(Bog)=c("Dia","Casos","Index")
-colnames(Hitos)=c("Fecha","Clase","Entidad","Hito","Altura")
+colnames(Bog)=c("Dia","Casos","Muertes","Index")
+colnames(Hitos)=c("Fecha","Clase","Fase","Entidad","Hito","Inicio","Altura")
 
-#Ajustes de de base de hitos dataframe-gráfica
-baseline = min(Bog$Casos)
-delta = 0.05 * diff(range(Bog$Casos))
+str(Bog)
+str(Hitos)
+
+###Ajustes de de base de hitos dataframe-gráfica
+baseline = min(Bog$Muertes)
+delta = 0.05 * diff(range(Bog$Muertes))
 Hitos$ymin = baseline
 Hitos$timelapse = c(diff(Hitos$Fecha),2020-03-01)
 Hitos$bump = Hitos$timelapse < 2*370 #~2 años
@@ -210,25 +192,30 @@ Hitos$offset <- unlist(mapply(function(l,v) {if(v){(l:1)+1}else{rep(1,l)}}, l=of
 Hitos$ymax <- Hitos$Altura
 Hitos$ymin + Hitos$offset * delta
 
-#Realizar el Gráfico
-##Crear curva de casos con Stringency Index
-base_line <- geom_line(data=Bog,aes(Dia,Casos,colour=Index), size = 2)
+###Crear curva de casos con Stringency Index
+base_line <- geom_line(data=Bog,aes(Dia,Muertes,colour=Index), size = 2)
 
-##Integrando el gráfico
-ggplot() + base_line + theme_minimal() + # escala del mapa de stringency
-  labs(x="Semana",y="Casos semanales promedio",
-       title="Curva de contagios por COVID-19",
-       subtitle="Casos promedio semanales en Bogotá, Colombia",
+###Crear el label de los hitos con fecha
+hitos_lab <- paste(Hitos$Hito,"\n",Hitos$Fecha,sep="")
+
+###Integrando el gráfico de muertes
+  ggplot() + base_line + theme_minimal() + # escala del mapa de stringency
+  labs(x="Fecha",y="Muertes semanales promedio",
+       title="Curva de fallecidos por COVID-19",
+       subtitle="Muertes promedio semanales en Bogotá, Colombia",
        color = "Stringency Index
       Colombia",
        caption=("Fuente de datos: saludata.saludcapital.gov.co")) + ###labels
-  #scale_x_date(date_labels="%b %y",date_breaks = "1 month",limits=c(as.Date("2020-03-01"),as.Date("2021-05-01")))+
-  #scale_color_gradient(low = "green", high = "red")+
-  scale_color_gradientn(colors = c("#ADF84E", "#CCEE18", "#E2DF00", "#EECB00", "#F2B300", "#EE9700", "#E37830", "#D15544", "#B9264E", "#A00052"))+
-  scale_y_continuous(limits=c(-4300,5400)) + # change y axis scale
-  geom_segment(data = Hitos, mapping=aes(x=Fecha, y=ymin, xend=Fecha, yend=ymax)) + ###Agregar lineas de Hitos
-  geom_point(data = Hitos, mapping=aes(x=Fecha,y=ymax), size=1.2) + ###Agregar puntos de hitos
-  geom_text(data = Hitos, mapping=aes(x=Fecha, y=ymax, label=Hito), hjust=-0.01, vjust=0.5, size=2.8)+ ###Agregar leyendas de hitos
+  scale_color_gradientn(colors = c("#ADF84E", "#CCEE18", "#E2DF00", "#EECB00", "#F2B300", "#EE9700", "#E37830", "#D15544", "#B9264E", "#A00052"),limits = c(0,100))+
+  scale_y_continuous(limits=c(-60,110)) + # change y axis scale
+  geom_segment(data = Hitos, mapping=aes(x=Fecha, y=Inicio, xend=Fecha, yend=ymax)) + ###Agregar lineas de Hitos
+  geom_point(data = Hitos, mapping=aes(x=Fecha,y=ymax, shape=Clase), size=2) + ###Agregar puntos de hitos
+  new_scale_color() +
+  geom_text(data = Hitos, mapping=aes(x=Fecha, y=ymax, label=hitos_lab, color = Fase), hjust=-0.01, vjust=0.5, size=2.8)+ ###Agregar leyendas de hitos
+  scale_colour_manual(breaks=c("A-","B-","C-","D","C+","B+","A+"),
+                      values=c('A-'="#FFD8A2", 'B-'="#FAB875", 'C-'="#E19438", 'D'="#C56F00",
+                               'C+'="#A4C6FF", 'B+'="#40A2FF", 'A+'="#006BFF")) +
+  labs(color = "Fase Recovery", shape = "Tipo de acción") +
   guides(alpha=FALSE)
 
 ```
@@ -248,23 +235,31 @@ library(dplyr)
 library(readxl)
 library(viridis)
 library("colorspace")
+library(ggnewscale)
 
-#Se cargan las bases de excel desde GitHub Desktop
+
 ##Cargar casos promedio semanales  y Stringency Index en Buenos Aires   Argentina
 BA <- read_excel("~/GitHub/covid-transport/Bogota_daily_cases.xlsx", 
-                 sheet = "BA_cases", range = "E2:H60", col_types=c("date","numeric","numeric","numeric"))
+                 sheet = "BA_cases",
+                 range = "H2:K63",
+                 col_types=c("date","numeric","numeric","numeric"))
 View(BA)
 
 ##Cargar hitos legislación y transporte en Argentina y Buenos Aires
 Hitos <- read_excel("~/GitHub/covid-transport/Bogota_daily_cases.xlsx", 
-                    sheet = "BA_cases",range = "J2:N19", col_types=c("date","text","text","text","numeric"))
+                    sheet = "BA_cases",
+                    range = "N2:U19", 
+                    col_types=c("date","text","text","text","text","skip","numeric","numeric"))
 View(Hitos)
 
+#Para muertes promedio semanales
 ##Cambio de nombres de columnas por practicidad
-colnames(BA)=c("Dia","Casos","Index")
-colnames(Hitos)=c("Fecha","Clase","Entidad","Hito","Altura")
+colnames(BA)=c("Dia","Casos","Muertes","Index")
+colnames(Hitos)=c("Fecha","Clase","Fase","Entidad","Hito","Inicio","Altura")
+str(BA)
+str(Hitos)
 
-#Ajustes de de base de hitos dataframe-gráfica
+##Ajustes de de base de hitos dataframe-gráfica
 baseline = min(BA$Casos)
 delta = 0.05 * diff(range(BA$Casos))
 Hitos$ymin = baseline
@@ -275,23 +270,30 @@ Hitos$offset <- unlist(mapply(function(l,v) {if(v){(l:1)+1}else{rep(1,l)}}, l=of
 Hitos$ymax <- Hitos$Altura
 Hitos$ymin + Hitos$offset * delta
 
-#Realizar el Gráfico
-##Crear el mapa base
-base_line <- geom_line(data=BA,aes(Dia,Casos,colour=Index), size = 2)
+##Realizar el Gráfico
+###Crear el mapa base
+base_line <- geom_line(data=BA,aes(Dia,Muertes,colour=Index), size = 2)
 
-##Integrando el gráfico
+###Crear el label de los hitos con fecha
+hitos_lab <- paste(Hitos$Hito,"\n",Hitos$Fecha,sep="")
+
+###Integrando el gráfico
 ggplot() + base_line + theme_minimal() + # escala del mapa de stringency
-  labs(x="Semana",y="Casos semanales promedio",
-       title="Curva de contagios por COVID-19",
-       subtitle="Casos promedio semanales en Buenos Aires, Argentina",
+  labs(x="Semana",y="Muertes semanales promedio",
+       title="Curva de fallecidos por COVID-19",
+       subtitle="Muertes promedio semanales en Buenos Aires, Argentina",
        color = "Stringency Index
       Argentina",
        caption=("Fuente de datos: buenosaires.gob.ar")) + ###labels
   scale_color_gradientn(colors = c("#ADF84E", "#CCEE18", "#E2DF00", "#EECB00", "#F2B300", "#EE9700", "#E37830", "#D15544", "#B9264E", "#A00052"))+
-  scale_y_continuous(limits=c(-3000,4250)) + # change y axis scale
-  geom_segment(data = Hitos, mapping=aes(x=Fecha, y=ymin, xend=Fecha, yend=ymax)) + ###Agregar lineas de Hitos
-  geom_point(data = Hitos, mapping=aes(x=Fecha,y=ymax), size=1.2) + ###Agregar puntos de hitos
-  geom_text(data = Hitos, mapping=aes(x=Fecha, y=ymax, label=Hito), hjust=-0.01, vjust=0.5, size=2.8)+ ###Agregar leyendas de hitos
+  scale_y_continuous(limits=c(-40,100)) + # change y axis scale
+  geom_segment(data = Hitos, mapping=aes(x=Fecha, y=Inicio, xend=Fecha, yend=ymax)) + ###Agregar lineas de Hitos
+  geom_point(data = Hitos, mapping=aes(x=Fecha,y=ymax, shape=Clase), size=2) + ###Agregar puntos de hitos
+  new_scale_color() +
+  geom_text(data = Hitos, mapping=aes(x=Fecha, y=ymax, label=hitos_lab, color = Fase), hjust=-0.01, vjust=0.5, size=2.8)+ ###Agregar leyendas de hitos
+  scale_colour_manual(breaks=c("A-","B-","C-","D","C+","B+","A+"),
+                      values=c('A-'="#FFD8A2", 'B-'="#FAB875", 'C-'="#E19438", 'D'="#C56F00",
+                               'C+'="#A4C6FF", 'B+'="#40A2FF", 'A+'="#006BFF")) +
   guides(alpha=FALSE)
 
 ```
@@ -312,25 +314,34 @@ library(dplyr)
 library(readxl)
 library(viridis)
 library("colorspace")
+library(ggnewscale)
 
+
+##Para el caso de muertes promedio semanales
 #Se cargan las bases de excel desde GitHub Desktop
-##Cargar casos promedio semanales  y Stringency Index en Buenos Aires   Argentina
-BA <- read_excel("~/GitHub/covid-transport/Bogota_daily_cases.xlsx", 
-                 sheet = "BA_cases", range = "E2:H60", col_types=c("date","numeric","numeric","numeric"))
-View(BA)
+##Cargar casos promedio semanales en Buenos Aires
+WDC <- read_excel("~/GitHub/covid-transport/Bogota_daily_cases.xlsx", 
+                  sheet = "Washington_DC_cases",
+                  range = "H2:K63",
+                  col_types=c("date","numeric","numeric","numeric"))
+View(WDC)
 
-##Cargar hitos legislación y transporte en Argentina y Buenos Aires
+##Cargar hitos legislación y transporte en Washington DC y Estados Unidos
 Hitos <- read_excel("~/GitHub/covid-transport/Bogota_daily_cases.xlsx", 
-                    sheet = "BA_cases",range = "J2:N19", col_types=c("date","text","text","text","numeric"))
+                    sheet = "Washington_DC_cases",
+                    range = "N2:U20",
+                    col_types=c("date","text","text","text","text","skip","numeric","numeric"))
 View(Hitos)
 
 ##Cambio de nombres de columnas por practicidad
-colnames(BA)=c("Dia","Casos","Index")
-colnames(Hitos)=c("Fecha","Clase","Entidad","Hito","Altura")
+colnames(WDC)=c("Dia","Casos","Muertes","Index")
+colnames(Hitos)=c("Fecha","Clase","Fase","Entidad","Hito","Inicio","Altura")
+str(WDC)
+str(Hitos)
 
 #Ajustes de de base de hitos dataframe-gráfica
-baseline = min(BA$Casos)
-delta = 0.05 * diff(range(BA$Casos))
+baseline = min(WDC$Muertes)
+delta = 0.05 * diff(range(WDC$Muertes))
 Hitos$ymin = baseline
 Hitos$timelapse = c(diff(Hitos$Fecha),2020-03-01)
 Hitos$bump = Hitos$timelapse < 2*370 #~2 años
@@ -341,21 +352,28 @@ Hitos$ymin + Hitos$offset * delta
 
 #Realizar el Gráfico
 ##Crear el mapa base
-base_line <- geom_line(data=BA,aes(Dia,Casos,colour=Index), size = 2)
+base_line <- geom_line(data=WDC,aes(Dia,Muertes,colour=Index), size = 2)
+
+###Crear el label de los hitos con fecha
+hitos_lab <- paste(Hitos$Hito,"\n",Hitos$Fecha,sep="")
 
 ##Integrando el gráfico
 ggplot() + base_line + theme_minimal() + # escala del mapa de stringency
-  labs(x="Semana",y="Casos semanales promedio",
-       title="Curva de contagios por COVID-19",
-       subtitle="Casos promedio semanales en Buenos Aires, Argentina",
+  labs(x="Semana",y="Muertes semanales promedio",
+       title="Curva de fallecidos por COVID-19",
+       subtitle="Muertes promedio semanales en Washington D.C., EE.UU.",
        color = "Stringency Index
-      Argentina",
-       caption=("Fuente de datos: buenosaires.gob.ar")) + ###labels
+      Washington DC",
+       caption=("Fuente de datos: coronavirus.dc.gov")) + ###labels
   scale_color_gradientn(colors = c("#ADF84E", "#CCEE18", "#E2DF00", "#EECB00", "#F2B300", "#EE9700", "#E37830", "#D15544", "#B9264E", "#A00052"))+
-  scale_y_continuous(limits=c(-3000,4250)) + # change y axis scale
-  geom_segment(data = Hitos, mapping=aes(x=Fecha, y=ymin, xend=Fecha, yend=ymax)) + ###Agregar lineas de Hitos
-  geom_point(data = Hitos, mapping=aes(x=Fecha,y=ymax), size=1.2) + ###Agregar puntos de hitos
-  geom_text(data = Hitos, mapping=aes(x=Fecha, y=ymax, label=Hito), hjust=-0.01, vjust=0.5, size=2.8)+ ###Agregar leyendas de hitos
+  scale_y_continuous(limits=c(-9,12)) + # change y axis scale
+  geom_segment(data = Hitos, mapping=aes(x=Fecha, y=Inicio, xend=Fecha, yend=ymax)) + ###Agregar lineas de Hitos
+  geom_point(data = Hitos, mapping=aes(x=Fecha,y=ymax,shape=Clase), size=1.2) + ###Agregar puntos de hitos
+  new_scale_color() +
+  geom_text(data = Hitos, mapping=aes(x=Fecha, y=ymax, label=hitos_lab, color = Fase), hjust=-0.01, vjust=0.5, size=2.8)+ ###Agregar leyendas de hitos
+  scale_colour_manual(breaks=c("A-","B-","C-","D","C+","B+","A+"),
+                      values=c('A-'="#FFD8A2", 'B-'="#FAB875", 'C-'="#E19438", 'D'="#C56F00",
+                               'C+'="#A4C6FF", 'B+'="#40A2FF", 'A+'="#006BFF")) +
   guides(alpha=FALSE)
 
 ```
