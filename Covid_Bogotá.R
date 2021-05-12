@@ -44,7 +44,7 @@ Hitos$ymin + Hitos$offset * delta
 ##Crear curva de casos con Stringency Index
 base_line <- geom_line(data=Bog,aes(Dia,Casos,colour=Index), size = 2)
 
-### Crear el label de los hitos con fecha
+###Crear el label de los hitos con fecha
 my_xlab <- paste(Hitos$Hito,"\n",Hitos$Fecha,sep="")
 
 ##Integrando el gráfico
@@ -61,26 +61,6 @@ ggplot() + base_line + theme_minimal() + # escala del mapa de stringency
   geom_point(data = Hitos, mapping=aes(x=Fecha,y=ymax), size=1.2) + ###Agregar puntos de hitos
   geom_text(data = Hitos, mapping=aes(x=Fecha, y=ymax, label=my_xlab), hjust=-0.01, vjust=0.5, size=2.8)+ ###Agregar leyendas de hitos
   guides(alpha=FALSE)
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 ##Para el caso de muertes promedio semanales
 ###Cargar hitos legislación y transporte en Colombia
@@ -129,28 +109,62 @@ ggplot() + base_line + theme_minimal() + # escala del mapa de stringency
   labs(color = "Fase Recovery", shape = "Tipo de acción") +
   guides(alpha=FALSE)
 
+##English version
+###Cambio idioma
+Sys.setenv("LANGUAGE"="En")
+Sys.setlocale("LC_ALL", "English")
 
+###Cargar hitos legislación y transporte en Colombia
+Hitos <- read_excel("~/GitHub/covid-transport/Bogota_daily_cases.xlsx", 
+                    range = "X2:AE24", col_types=c("date","text","text","text","text","skip","numeric","numeric"))
+View(Hitos)
 
+###Cambio de nombres de columnas por practicidad
+colnames(Hitos)=c("Fecha","Clase","Fase","Entidad","Hito","Inicio","Altura")
+str(Hitos)
 
+###Ajustes de de base de hitos dataframe-gráfica
+baseline = min(Bog$Muertes)
+delta = 0.05 * diff(range(Bog$Muertes))
+Hitos$ymin = baseline
+Hitos$timelapse = c(diff(Hitos$Fecha),2020-03-01)
+Hitos$bump = Hitos$timelapse < 2*370 #~2 años
+offsets <- rle(Hitos$bump)
+Hitos$offset <- unlist(mapply(function(l,v) {if(v){(l:1)+1}else{rep(1,l)}}, l=offsets$lengths, v=offsets$values, USE.NAMES=FALSE))
+Hitos$ymax <- Hitos$Altura
+Hitos$ymin + Hitos$offset * delta
 
+###Crear curva de casos con Stringency Index
+base_line <- geom_line(data=Bog,aes(Dia,Muertes,colour=Index), size = 2)
 
+###Crear el label de los hitos con fecha
+hitos_lab <- paste(Hitos$Hito,"\n",Hitos$Fecha,sep="")
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+###Integrando el gráfico de muertes
+ggplot() + base_line + theme_minimal() + # escala del mapa de stringency
+  labs(x="Date",y="Average weekly deaths reported",
+       title="Curve of deaths from COVID-19",
+       subtitle="Weekly average deaths reported in Bogotá, Colombia",
+       color = "Stringency Index
+      Colombia",
+       caption=("Data source: saludata.saludcapital.gov.co")) + ###labels
+  scale_color_gradientn(colors = c("#ADF84E", "#CCEE18", "#E2DF00", "#EECB00", "#F2B300", "#EE9700", "#E37830", "#D15544", "#B9264E", "#A00052"),limits = c(0,100))+
+  scale_y_continuous(limits=c(-60,110)) + # change y axis scale
+  geom_segment(data = Hitos, mapping=aes(x=Fecha, y=Inicio, xend=Fecha, yend=ymax)) + ###Agregar lineas de Hitos
+  geom_point(data = Hitos, mapping=aes(x=Fecha,y=ymax, shape=Clase), size=2) + ###Agregar puntos de hitos
+  new_scale_color() +
+  geom_text(data = Hitos, mapping=aes(x=Fecha, y=ymax, label=hitos_lab, color = Fase), hjust=-0.01, vjust=0.5, size=2.8)+ ###Agregar leyendas de hitos
+  scale_colour_manual(breaks=c("A-","B-","C-","D","C+","B+","A+"),
+                      values=c('A-'="#FFD8A2", 'B-'="#FAB875", 'C-'="#E19438", 'D'="#C56F00",
+                               'C+'="#A4C6FF", 'B+'="#40A2FF", 'A+'="#006BFF")) +
+  labs(color = "Recovery Phase", shape = "Action type") +
+  guides(alpha=FALSE)
 
 ##Ahora con Google Mobility
+###Cambio idioma
+Sys.setenv("LANGUAGE"="Es")
+Sys.setlocale("LC_ALL", "Spanish")
+
 ###Cargando la base
 Google_mob <- read_excel("~/GitHub/covid-transport/Bogota_daily_cases.xlsx", 
                   range = "G2:L60", col_types=c("date","numeric","numeric","numeric","numeric"))
