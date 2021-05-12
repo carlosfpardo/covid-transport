@@ -161,12 +161,14 @@ hitos_lab <- paste(Hitos$Hito,"\n",Hitos$Fecha,sep="")
 
 ##Integrando el gráfico
 ggplot() + base_line + theme_minimal() + # escala del mapa de stringency
-  labs(x="Date",y="Average weekly deaths reported",
-       title="Curve of deaths from COVID-19",
+  labs(x="", y="Average weekly deaths reported",
+       title="COVID-19 deaths, lockdown stringency and events(transport or general) in DC",
        subtitle="Weekly average deaths reported in Washington D.C., EE.UU.",
-       color = "Stringency Index
-      Washington DC",
-       caption=("Data source: coronavirus.dc.gov")) + ###labels
+       color = "Stringency",
+       caption=("Data source
+                COVID-19 deaths: DC government
+                Stringency: Oxford Stringency Index
+                Events: several sources")) + ###labels
   scale_color_gradientn(colors = c("#ADF84E", "#CCEE18", "#E2DF00", "#EECB00", "#F2B300", "#EE9700", "#E37830", "#D15544", "#B9264E", "#A00052"))+
   scale_y_continuous(limits=c(-9,12)) + # change y axis scale
   geom_segment(data = Hitos, mapping=aes(x=Fecha, y=Inicio, xend=Fecha, yend=ymax)) + ###Agregar lineas de Hitos
@@ -176,7 +178,7 @@ ggplot() + base_line + theme_minimal() + # escala del mapa de stringency
   scale_colour_manual(breaks=c("A-","B-","C-","D","C+","B+","A+"),
                       values=c('A-'="#FFD8A2", 'B-'="#FAB875", 'C-'="#E19438", 'D'="#C56F00",
                                'C+'="#A4C6FF", 'B+'="#40A2FF", 'A+'="#006BFF")) +
-  labs(color = "Recovery Phase", shape = "Action type") +
+  labs(shape = "Event type") +
   guides(alpha=FALSE)
 
 ##Ahora con google mobility
