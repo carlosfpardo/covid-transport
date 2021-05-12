@@ -152,7 +152,7 @@ Hitos$ymin + Hitos$offset * delta
 #### Bogotá D. C.,Colombia
 Luego de haber configurado los hitos, se integraron estos aspectos llamando a la librería de `ggplot2` y a partir de esto se configuró así:
 
-(Imagen disponible en formato SVG para descargar [aquí](https://drive.google.com/file/d/16YD2ygdgni-023pg-esMZXERGkA_oZ0h/view?usp=sharing))
+(Imagen disponible en formato SVG para descargar desde [GitHub](https://github.com/carlosfpardo/covid-transport/blob/main/CurvaBOG.svg) o [Google Drive](https://drive.google.com/file/d/16YD2ygdgni-023pg-esMZXERGkA_oZ0h/view?usp=sharing))
 ```{r, warning=FALSE, message=FALSE, results='hide', echo=FALSE, fig.height=8, fig.width=12, fig.align='center'}
 #limpiar RAM y caché
 gc()
@@ -223,7 +223,7 @@ hitos_lab <- paste(Hitos$Hito,"\n",Hitos$Fecha,sep="")
 ```
 Y la versión en inglés
 
-(Imagen disponible en formato SVG para descargar [aquí](https://drive.google.com/file/d/1CCsbN-btu0iD7OLYMAYUjQxbPALM06IL/view?usp=sharing))
+(Imagen disponible en formato SVG para descargar desde [GitHub](https://github.com/carlosfpardo/covid-transport/blob/main/CurveBOG_en.svg) o [Google Drive](https://drive.google.com/file/d/1CCsbN-btu0iD7OLYMAYUjQxbPALM06IL/view?usp=sharing))
 ```{r, warning=FALSE, message=FALSE, results='hide', echo=FALSE, fig.height=8, fig.width=12, fig.align='center'}
 #limpiar RAM y caché
 gc()
@@ -298,11 +298,12 @@ Sys.setenv("LANGUAGE"="Es")
 Sys.setlocale("LC_ALL", "Spanish")
 
 ```
+
 #### Buenos Aires, Argentina
 
 De la misma manera, pero sin los hitos principales, se replica el análisis para la ciudad de Buenos Aires de Argentina, dando como resultado la siguiente gráfica:
 
-(Imagen disponible en formato SVG para descargar [aquí](https://drive.google.com/file/d/1VAr5KgQqTNiuiHZnbiLcMD0OS_VBFoBm/view?usp=sharing))
+(Imagen disponible en formato SVG para descargar desde [GitHub](https://github.com/carlosfpardo/covid-transport/blob/main/CurvaBA.svg) o [Google Drive](https://drive.google.com/file/d/1VAr5KgQqTNiuiHZnbiLcMD0OS_VBFoBm/view?usp=sharing))
 ```{r, warning=FALSE, message=FALSE, results='hide', echo=FALSE, fig.height=8, fig.width=12, fig.align='center'}
 #limpiar RAM y caché
 gc()
@@ -378,7 +379,7 @@ ggplot() + base_line + theme_minimal() + # escala del mapa de stringency
 ```
 Y la versión en inglés
 
-(Imagen disponible en formato SVG para descargar [aquí](https://drive.google.com/file/d/1_9ifFoeW4302CSZFf2uf8aGSWce_bS50/view?usp=sharing))
+(Imagen disponible en formato SVG para descargar desde [GitHub](https://github.com/carlosfpardo/covid-transport/blob/main/CurveBA_en.svg) o [Google Drive](https://drive.google.com/file/d/1_9ifFoeW4302CSZFf2uf8aGSWce_bS50/view?usp=sharing))
 ```{r, warning=FALSE, message=FALSE, results='hide', echo=FALSE, fig.height=8, fig.width=12, fig.align='center'}
 #limpiar RAM y caché
 gc()
@@ -466,7 +467,7 @@ Sys.setlocale("LC_ALL", "Spanish")
 
 De la misma manera, pero sin los hitos principales, se replica el análisis para la ciudad de Washington D.C. de EE.UU., dando como resultado la siguiente gráfica:
 
-(Imagen disponible en formato SVG para descargar [aquí](https://drive.google.com/file/d/16egX52dee6UcFPgnQA8XBGbZdhZIEo97/view?usp=sharing))
+(Imagen disponible en formato SVG para descargar desde [GitHub](https://github.com/carlosfpardo/covid-transport/blob/main/CurvaWDC.svg) o [Google Drive](https://drive.google.com/file/d/16egX52dee6UcFPgnQA8XBGbZdhZIEo97/view?usp=sharing))
 ```{r, warning=FALSE, message=FALSE, results='hide', echo=FALSE, fig.height=8, fig.width=12, fig.align='center'}
 #limpiar RAM y caché
 gc()
@@ -543,7 +544,7 @@ ggplot() + base_line + theme_minimal() + # escala del mapa de stringency
 ```
 Y la versión en inglés
 
-(Imagen disponible en formato SVG para descargar [aquí](https://drive.google.com/file/d/1hJZZz4UFsdWZkDbJ-4_1Ahy3yzUh1_us/view?usp=sharing))
+(Imagen disponible en formato SVG para descargar desde [GitHub](https://github.com/carlosfpardo/covid-transport/blob/main/CurveWDC_en.svg) o [Google Drive](https://drive.google.com/file/d/1hJZZz4UFsdWZkDbJ-4_1Ahy3yzUh1_us/view?usp=sharing))
 ```{r, warning=FALSE, message=FALSE, results='hide', echo=FALSE, fig.height=8, fig.width=12, fig.align='center'}
 #limpiar RAM y caché
 gc()
