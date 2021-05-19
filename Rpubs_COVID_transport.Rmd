@@ -1,0 +1,1042 @@
+---
+title: "Análisis de COVID y transporte en Bogotá, Buenos Aires y Washington DC"
+author: "Miguel Ángel Cuéllar"
+date: "29/4/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+Este documento presenta de forma esquemática un análisis preliminar de la relación entre el avance de la pandemia por COVID-19 y las principales políticas relacionadas con la salud pública y el transporte en ciudades como Bogotá, Buenos Aires y Washington DC.
+
+Para ello, se utilizaron los datos de casos diarios de contagios por COVID-19 en cada una de estas ciudades, de acuerdo con las fuentes oficiales, así como el *Stringency Index* según los parámetros de la Universidad de Oxford y, finalmente, el histórico de hitos para la ciudad de Bogotá, Colombia referentes a salud pública desde el contexto global hasta el municipal, así como las medidas asociadas al transporte de la ciudad.
+
+A continuación se describe más a detalle cada uno de estos proceso de recolección de datos y procesamiento posterior en RStudio para el caso de Bogotá especificamente para ejemplificar la manera en como se replicaron para las otras dos ciudades.
+
+# Gráfico objetivo
+
+```{r, warning=FALSE, message=FALSE, results='hide', echo=FALSE, fig.height=8, fig.width=12, fig.align='center'}
+#limpiar RAM y caché
+gc()
+rm(list=ls())
+
+#Instalar Librerias
+library(ggplot2)
+library(dplyr)
+library(readxl)
+library(viridis)
+library("colorspace")
+library(ggnewscale)
+
+#Se cargan las bases de excel desde GitHub Desktop
+##Cargar casos promedio semanales y Stringency Index
+Bog <- read_excel("~/GitHub/covid-transport/Bogota_daily_cases.xlsx", 
+                  range = "H2:K60", col_types=c("date","numeric","numeric","numeric"))
+
+###Cargar hitos legislación y transporte en Colombia
+Hitos <- read_excel("~/GitHub/covid-transport/Bogota_daily_cases.xlsx", 
+                    range = "N2:U24",
+                    col_types=c("date","text","text","text","text","skip","numeric","numeric"))
+
+##Cambio de nombres de columnas por practicidad
+colnames(Bog)=c("Dia","Casos","Muertes","Index")
+colnames(Hitos)=c("Fecha","Clase","Fase","Entidad","Hito","Inicio","Altura")
+
+str(Bog)
+str(Hitos)
+
+###Ajustes de de base de hitos dataframe-gráfica
+baseline = min(Bog$Muertes)
+delta = 0.05 * diff(range(Bog$Muertes))
+Hitos$ymin = baseline
+Hitos$timelapse = c(diff(Hitos$Fecha),2020-03-01)
+Hitos$bump = Hitos$timelapse < 2*370 #~2 años
+offsets <- rle(Hitos$bump)
+Hitos$offset <- unlist(mapply(function(l,v) {if(v){(l:1)+1}else{rep(1,l)}}, l=offsets$lengths, v=offsets$values, USE.NAMES=FALSE))
+Hitos$ymax <- Hitos$Altura
+Hitos$ymin + Hitos$offset * delta
+
+###Crear curva de casos con Stringency Index
+base_line <- geom_line(data=Bog,aes(Dia,Muertes,colour=Index), size = 2)
+
+###Crear el label de los hitos con fecha
+hitos_lab <- paste(Hitos$Hito,"\n",Hitos$Fecha,sep="")
+
+###Integrando el gráfico de muertes
+  ggplot() + base_line + theme_minimal() + # escala del mapa de stringency
+  labs(x="Fecha",y="Muertes semanales promedio",
+       title="Curva de fallecidos por COVID-19",
+       subtitle="Muertes promedio semanales en Bogotá, Colombia",
+       color = "Stringency Index
+      Colombia",
+       caption=("Fuente de datos: saludata.saludcapital.gov.co")) + ###labels
+  scale_color_gradientn(colors = c("#ADF84E", "#CCEE18", "#E2DF00", "#EECB00", "#F2B300", "#EE9700", "#E37830", "#D15544", "#B9264E", "#A00052"),limits = c(0,100))+
+  scale_y_continuous(limits=c(-60,110)) + # change y axis scale
+  geom_segment(data = Hitos, mapping=aes(x=Fecha, y=Inicio, xend=Fecha, yend=ymax)) + ###Agregar lineas de Hitos
+  geom_point(data = Hitos, mapping=aes(x=Fecha,y=ymax, shape=Clase), size=2) + ###Agregar puntos de hitos
+  new_scale_color() +
+  geom_text(data = Hitos, mapping=aes(x=Fecha, y=ymax, label=hitos_lab, color = Fase), hjust=-0.01, vjust=0.5, size=2.8)+ ###Agregar leyendas de hitos
+  scale_colour_manual(breaks=c("A-","B-","C-","D","C+","B+","A+"),
+                      values=c('A-'="#FFD8A2", 'B-'="#FAB875", 'C-'="#E19438", 'D'="#C56F00",
+                               'C+'="#A4C6FF", 'B+'="#40A2FF", 'A+'="#006BFF")) +
+  labs(color = "Fase Recovery", shape = "Tipo de acción") +
+  guides(alpha=FALSE)
+
+```
+
+
+### Las curvas epidemiológicas
+De acuerdo con la información oficial de las páginas web de las ciudades, se recolectaron las cifras de casos diarios desde que se reportó el primer caso positivo por COVID-19 en cada una de las ciudades en particular.
+
+Estos datos de contagios diarios se promediaron semanalmente para efectos prácticos y estéticos del gráfico objetivo que se muestra más adelante.
+
+Para el caso de Bogotá, se obtuvieron los datos de [Saludata](https://saludata.saludcapital.gov.co/osb/index.php/datos-de-salud/enfermedades-trasmisibles/covid19/) principalmente y, alojandolos en este [GitHub](https://github.com/carlosfpardo/covid-transport), se realizaron las adecuaciones directamente en Excel y se cargaron a partir del siguiente código:
+```{r, results='hide', message=FALSE, eval=FALSE}
+Bog <- read_excel("~/GitHub/covid-transport/Bogota_daily_cases.xlsx", 
+                  range = "E2:F58")
+View(Bog)
+```
+Y posteriormente se realizaron algunas adaptaciones por cuestiones de practicidad en el manejo de las bases como el nombre de las columnas principales:
+```{r, eval=FALSE}
+colnames(Bog)=c("Semana","Casos")
+```
+
+### El *Stringency Index*
+
+Uno de los índices estudiados por la Universidad de Oxford es el *Stringency Index* que mide el nivel de medidas restrictivas en medio de la pandemia asociado a un amplio número de variables al rededor de las políticas públicas en los diferentes paises. En ese sentido, es importante aclarar que para las ciudades de Bogotá y Buenos Aires se tomó como referencia los indices de Colombia y Argentina, respectivamente, ya que en la fuente oficial de dicho indice se tiene los datos por paises, y solo para el caso de Washington DC se pudieron tomar los datos directamente de la ciudad.
+
+Teniendo en cuenta esto, se compilaron los datos para cada caso en Excel y se adecuaron a conveniencia mediante el código
+
+```{r, eval=FALSE}
+stringency_index <- read_excel("Bogota_daily_cases.xlsx", 
+                                 range = "S2:T428")
+View(stringency_index)
+
+colnames(stringency_index)=c("Dia","Index")
+```
+Y, posteriormente se integraron en el gráfico a partir de lo siguiente:
+```{r, eval=FALSE}
+stringency <- geom_bar(data=stringency_index,stat="identity",aes(Dia,max(Bog$Casos),fill=Index))
+```
+
+
+### Hitos relacionados con la pandemia (solo para Bogotá)
+
+Finalmente, la última variable tenida en cuenta para el análisis fueron los hitos, tanto en políticas relacionadas con salud pública como con transporte, que se fueron consolidando a medida que avanzaba la pandemia en el contexto de Bogotá (aunque replicable para las demás ciudades).
+
+Para este caso, luego de llamar los datos correspondientes de Excel, se realizó el tratamiento respectivo para integrarlos al gráfico posteriormente:
+```{r, eval=FALSE}
+Hitos <- read_excel("Bogota_daily_cases.xlsx", 
+                                 range = "H2:L24")
+
+View(Hitos)
+colnames(Hitos)=c("Fecha","Clase","Entidad","Hito","Altura")
+
+#Ajustes de de base de hitos dataframe-gráfica
+baseline = min(Bog$Casos)
+delta = 0.05 * diff(range(Bog$Casos))
+Hitos$ymin = baseline
+Hitos$timelapse = c(diff(Hitos$Fecha),2020-03-01)
+Hitos$bump = Hitos$timelapse < 2*370 #~2 años
+offsets <- rle(Hitos$bump)
+Hitos$offset <- unlist(mapply(function(l,v) {if(v){(l:1)+1}else{rep(1,l)}}, l=offsets$lengths, v=offsets$values, USE.NAMES=FALSE))
+Hitos$ymax <- Hitos$Altura
+
+Hitos$ymin + Hitos$offset * delta
+```
+
+## Gráfica Resultado
+
+#### Bogotá D. C.,Colombia
+Luego de haber configurado los hitos, se integraron estos aspectos llamando a la librería de `ggplot2` y a partir de esto se configuró así:
+
+(Imagen disponible en formato SVG para descargar desde [GitHub](https://github.com/carlosfpardo/covid-transport/blob/main/CurvaBOG.svg) o [Google Drive](https://drive.google.com/file/d/16YD2ygdgni-023pg-esMZXERGkA_oZ0h/view?usp=sharing))
+```{r, warning=FALSE, message=FALSE, results='hide', echo=FALSE, fig.height=8, fig.width=12, fig.align='center'}
+#limpiar RAM y caché
+gc()
+rm(list=ls())
+
+#Instalar Librerias
+library(ggplot2)
+library(dplyr)
+library(readxl)
+library(viridis)
+library("colorspace")
+library(ggnewscale)
+
+#Se cargan las bases de excel desde GitHub Desktop
+##Cargar casos promedio semanales y Stringency Index
+Bog <- read_excel("~/GitHub/covid-transport/Bogota_daily_cases.xlsx", 
+                  range = "H2:K60", col_types=c("date","numeric","numeric","numeric"))
+
+###Cargar hitos legislación y transporte en Colombia
+Hitos <- read_excel("~/GitHub/covid-transport/Bogota_daily_cases.xlsx", 
+                    range = "N2:U24",
+                    col_types=c("date","text","text","text","text","skip","numeric","numeric"))
+
+##Cambio de nombres de columnas por practicidad
+colnames(Bog)=c("Dia","Casos","Muertes","Index")
+colnames(Hitos)=c("Fecha","Clase","Fase","Entidad","Hito","Inicio","Altura")
+
+str(Bog)
+str(Hitos)
+
+###Ajustes de de base de hitos dataframe-gráfica
+baseline = min(Bog$Muertes)
+delta = 0.05 * diff(range(Bog$Muertes))
+Hitos$ymin = baseline
+Hitos$timelapse = c(diff(Hitos$Fecha),2020-03-01)
+Hitos$bump = Hitos$timelapse < 2*370 #~2 años
+offsets <- rle(Hitos$bump)
+Hitos$offset <- unlist(mapply(function(l,v) {if(v){(l:1)+1}else{rep(1,l)}}, l=offsets$lengths, v=offsets$values, USE.NAMES=FALSE))
+Hitos$ymax <- Hitos$Altura
+Hitos$ymin + Hitos$offset * delta
+
+###Crear curva de casos con Stringency Index
+base_line <- geom_line(data=Bog,aes(Dia,Muertes,colour=Index), size = 2)
+
+###Crear el label de los hitos con fecha
+hitos_lab <- paste(Hitos$Hito,"\n",Hitos$Fecha,sep="")
+
+###Integrando el gráfico de muertes
+  ggplot() + base_line + theme_minimal() + # escala del mapa de stringency
+  labs(x="Fecha",y="Muertes semanales promedio",
+       title="Curva de fallecidos por COVID-19",
+       subtitle="Muertes promedio semanales en Bogotá, Colombia",
+       color = "Stringency Index
+      Colombia",
+       caption=("Fuente de datos: saludata.saludcapital.gov.co")) + ###labels
+  scale_color_gradientn(colors = c("#ADF84E", "#CCEE18", "#E2DF00", "#EECB00", "#F2B300", "#EE9700", "#E37830", "#D15544", "#B9264E", "#A00052"),limits = c(0,100))+
+  scale_y_continuous(limits=c(-60,110)) + # change y axis scale
+  geom_segment(data = Hitos, mapping=aes(x=Fecha, y=Inicio, xend=Fecha, yend=ymax)) + ###Agregar lineas de Hitos
+  geom_point(data = Hitos, mapping=aes(x=Fecha,y=ymax, shape=Clase), size=2) + ###Agregar puntos de hitos
+  new_scale_color() +
+  geom_text(data = Hitos, mapping=aes(x=Fecha, y=ymax, label=hitos_lab, color = Fase), hjust=-0.01, vjust=0.5, size=2.8)+ ###Agregar leyendas de hitos
+  scale_colour_manual(breaks=c("A-","B-","C-","D","C+","B+","A+"),
+                      values=c('A-'="#FFD8A2", 'B-'="#FAB875", 'C-'="#E19438", 'D'="#C56F00",
+                               'C+'="#A4C6FF", 'B+'="#40A2FF", 'A+'="#006BFF")) +
+  labs(color = "Fase Recovery", shape = "Tipo de acción") +
+  guides(alpha=FALSE)
+
+```
+Y la versión en inglés
+
+(Imagen disponible en formato SVG para descargar desde [GitHub](https://github.com/carlosfpardo/covid-transport/blob/main/CurveBOG_en.svg) o [Google Drive](https://drive.google.com/file/d/1CCsbN-btu0iD7OLYMAYUjQxbPALM06IL/view?usp=sharing))
+```{r, warning=FALSE, message=FALSE, results='hide', echo=FALSE, fig.height=8, fig.width=12, fig.align='center'}
+#limpiar RAM y caché
+gc()
+rm(list=ls())
+
+#Instalar Librerias
+library(ggplot2)
+library(dplyr)
+library(readxl)
+library(viridis)
+library("colorspace")
+library(ggnewscale)
+
+##English version
+###Cambio idioma
+Sys.setenv("LANGUAGE"="En")
+Sys.setlocale("LC_ALL", "English")
+
+#Se cargan las bases de excel desde GitHub Desktop
+##Cargar casos promedio semanales y Stringency Index
+Bog <- read_excel("~/GitHub/covid-transport/Bogota_daily_cases.xlsx", 
+                  range = "H2:K60", col_types=c("date","numeric","numeric","numeric"))
+
+###Cargar hitos legislación y transporte en Colombia
+Hitos <- read_excel("~/GitHub/covid-transport/Bogota_daily_cases.xlsx", 
+                    range = "X2:AE24", col_types=c("date","text","text","text","text","skip","numeric","numeric"))
+View(Hitos)
+
+###Cambio de nombres de columnas por practicidad
+colnames(Bog)=c("Dia","Casos","Muertes","Index")
+colnames(Hitos)=c("Fecha","Clase","Fase","Entidad","Hito","Inicio","Altura")
+str(Hitos)
+
+###Ajustes de de base de hitos dataframe-gráfica
+baseline = min(Bog$Muertes)
+delta = 0.05 * diff(range(Bog$Muertes))
+Hitos$ymin = baseline
+Hitos$timelapse = c(diff(Hitos$Fecha),2020-03-01)
+Hitos$bump = Hitos$timelapse < 2*370 #~2 años
+offsets <- rle(Hitos$bump)
+Hitos$offset <- unlist(mapply(function(l,v) {if(v){(l:1)+1}else{rep(1,l)}}, l=offsets$lengths, v=offsets$values, USE.NAMES=FALSE))
+Hitos$ymax <- Hitos$Altura
+Hitos$ymin + Hitos$offset * delta
+
+###Crear curva de casos con Stringency Index
+base_line <- geom_line(data=Bog,aes(Dia,Muertes,colour=Index), size = 2)
+
+###Crear el label de los hitos con fecha
+hitos_lab <- paste(Hitos$Hito,"\n",Hitos$Fecha,sep="")
+
+###Integrando el gráfico de muertes
+ggplot() + base_line + theme_minimal() + # escala del mapa de stringency
+  labs(x="Date",y="Average weekly deaths reported",
+       title="Curve of deaths from COVID-19",
+       subtitle="Weekly average deaths reported in Bogotá, Colombia",
+       color = "Stringency Index
+      Colombia",
+       caption=("Data source: saludata.saludcapital.gov.co")) + ###labels
+  scale_color_gradientn(colors = c("#ADF84E", "#CCEE18", "#E2DF00", "#EECB00", "#F2B300", "#EE9700", "#E37830", "#D15544", "#B9264E", "#A00052"),limits = c(0,100))+
+  scale_y_continuous(limits=c(-60,110)) + # change y axis scale
+  geom_segment(data = Hitos, mapping=aes(x=Fecha, y=Inicio, xend=Fecha, yend=ymax)) + ###Agregar lineas de Hitos
+  geom_point(data = Hitos, mapping=aes(x=Fecha,y=ymax, shape=Clase), size=2) + ###Agregar puntos de hitos
+  new_scale_color() +
+  geom_text(data = Hitos, mapping=aes(x=Fecha, y=ymax, label=hitos_lab, color = Fase), hjust=-0.01, vjust=0.5, size=2.8)+ ###Agregar leyendas de hitos
+  scale_colour_manual(breaks=c("A-","B-","C-","D","C+","B+","A+"),
+                      values=c('A-'="#FFD8A2", 'B-'="#FAB875", 'C-'="#E19438", 'D'="#C56F00",
+                               'C+'="#A4C6FF", 'B+'="#40A2FF", 'A+'="#006BFF")) +
+  labs(color = "Recovery Phase", shape = "Action type") +
+  guides(alpha=FALSE)
+###Cambio idioma
+Sys.setenv("LANGUAGE"="Es")
+Sys.setlocale("LC_ALL", "Spanish")
+
+```
+
+#### Buenos Aires, Argentina
+
+De la misma manera, pero sin los hitos principales, se replica el análisis para la ciudad de Buenos Aires de Argentina, dando como resultado la siguiente gráfica:
+
+(Imagen disponible en formato SVG para descargar desde [GitHub](https://github.com/carlosfpardo/covid-transport/blob/main/CurvaBA.svg) o [Google Drive](https://drive.google.com/file/d/1VAr5KgQqTNiuiHZnbiLcMD0OS_VBFoBm/view?usp=sharing))
+```{r, warning=FALSE, message=FALSE, results='hide', echo=FALSE, fig.height=8, fig.width=12, fig.align='center'}
+#limpiar RAM y caché
+gc()
+rm(list=ls())
+
+#Instalar Librerias
+library(ggplot2)
+library(dplyr)
+library(readxl)
+library(viridis)
+library("colorspace")
+library(ggnewscale)
+
+
+##Cargar casos promedio semanales  y Stringency Index en Buenos Aires   Argentina
+BA <- read_excel("~/GitHub/covid-transport/Bogota_daily_cases.xlsx", 
+                 sheet = "BA_cases",
+                 range = "H2:K63",
+                 col_types=c("date","numeric","numeric","numeric"))
+View(BA)
+
+##Cargar hitos legislación y transporte en Argentina y Buenos Aires
+Hitos <- read_excel("~/GitHub/covid-transport/Bogota_daily_cases.xlsx", 
+                    sheet = "BA_cases",
+                    range = "N2:U19", 
+                    col_types=c("date","text","text","text","text","skip","numeric","numeric"))
+View(Hitos)
+
+#Para muertes promedio semanales
+##Cambio de nombres de columnas por practicidad
+colnames(BA)=c("Dia","Casos","Muertes","Index")
+colnames(Hitos)=c("Fecha","Clase","Fase","Entidad","Hito","Inicio","Altura")
+str(BA)
+str(Hitos)
+
+##Ajustes de de base de hitos dataframe-gráfica
+baseline = min(BA$Casos)
+delta = 0.05 * diff(range(BA$Casos))
+Hitos$ymin = baseline
+Hitos$timelapse = c(diff(Hitos$Fecha),2020-03-01)
+Hitos$bump = Hitos$timelapse < 2*370 #~2 años
+offsets <- rle(Hitos$bump)
+Hitos$offset <- unlist(mapply(function(l,v) {if(v){(l:1)+1}else{rep(1,l)}}, l=offsets$lengths, v=offsets$values, USE.NAMES=FALSE))
+Hitos$ymax <- Hitos$Altura
+Hitos$ymin + Hitos$offset * delta
+
+##Realizar el Gráfico
+###Crear el mapa base
+base_line <- geom_line(data=BA,aes(Dia,Muertes,colour=Index), size = 2)
+
+###Crear el label de los hitos con fecha
+hitos_lab <- paste(Hitos$Hito,"\n",Hitos$Fecha,sep="")
+
+###Integrando el gráfico
+ggplot() + base_line + theme_minimal() + # escala del mapa de stringency
+  labs(x="Semana",y="Muertes semanales promedio",
+       title="Curva de fallecidos por COVID-19",
+       subtitle="Muertes promedio semanales en Buenos Aires, Argentina",
+       color = "Stringency Index
+      Argentina",
+       caption=("Fuente de datos: buenosaires.gob.ar")) + ###labels
+  scale_color_gradientn(colors = c("#ADF84E", "#CCEE18", "#E2DF00", "#EECB00", "#F2B300", "#EE9700", "#E37830", "#D15544", "#B9264E", "#A00052"))+
+  scale_y_continuous(limits=c(-40,100)) + # change y axis scale
+  geom_segment(data = Hitos, mapping=aes(x=Fecha, y=Inicio, xend=Fecha, yend=ymax)) + ###Agregar lineas de Hitos
+  geom_point(data = Hitos, mapping=aes(x=Fecha,y=ymax, shape=Clase), size=2) + ###Agregar puntos de hitos
+  new_scale_color() +
+  geom_text(data = Hitos, mapping=aes(x=Fecha, y=ymax, label=hitos_lab, color = Fase), hjust=-0.01, vjust=0.5, size=2.8)+ ###Agregar leyendas de hitos
+  scale_colour_manual(breaks=c("A-","B-","C-","D","C+","B+","A+"),
+                      values=c('A-'="#FFD8A2", 'B-'="#FAB875", 'C-'="#E19438", 'D'="#C56F00",
+                               'C+'="#A4C6FF", 'B+'="#40A2FF", 'A+'="#006BFF")) +
+  guides(alpha=FALSE)
+
+```
+Y la versión en inglés
+
+(Imagen disponible en formato SVG para descargar desde [GitHub](https://github.com/carlosfpardo/covid-transport/blob/main/CurveBA_en.svg) o [Google Drive](https://drive.google.com/file/d/1_9ifFoeW4302CSZFf2uf8aGSWce_bS50/view?usp=sharing))
+```{r, warning=FALSE, message=FALSE, results='hide', echo=FALSE, fig.height=8, fig.width=12, fig.align='center'}
+#limpiar RAM y caché
+gc()
+rm(list=ls())
+
+#Instalar Librerias
+library(ggplot2)
+library(dplyr)
+library(readxl)
+library(viridis)
+library("colorspace")
+library(ggnewscale)
+
+##English version
+###Cambio idioma
+Sys.setenv("LANGUAGE"="En")
+Sys.setlocale("LC_ALL", "English")
+
+##Cargar casos promedio semanales  y Stringency Index en Buenos Aires   Argentina
+BA <- read_excel("~/GitHub/covid-transport/Bogota_daily_cases.xlsx", 
+                 sheet = "BA_cases",
+                 range = "H2:K63",
+                 col_types=c("date","numeric","numeric","numeric"))
+View(BA)
+
+##Cargar hitos legislación y transporte en Argentina y Buenos Aires
+Hitos <- read_excel("~/GitHub/covid-transport/Bogota_daily_cases.xlsx", 
+                    sheet = "BA_cases",
+                    range = "X2:AE19", 
+                    col_types=c("date","text","text","text","text","skip","numeric","numeric"))
+View(Hitos)
+
+#Para muertes promedio semanales
+##Cambio de nombres de columnas por practicidad
+colnames(BA)=c("Dia","Casos","Muertes","Index")
+colnames(Hitos)=c("Fecha","Clase","Fase","Entidad","Hito","Inicio","Altura")
+str(BA)
+str(Hitos)
+
+##Ajustes de de base de hitos dataframe-gráfica
+baseline = min(BA$Casos)
+delta = 0.05 * diff(range(BA$Casos))
+Hitos$ymin = baseline
+Hitos$timelapse = c(diff(Hitos$Fecha),2020-03-01)
+Hitos$bump = Hitos$timelapse < 2*370 #~2 años
+offsets <- rle(Hitos$bump)
+Hitos$offset <- unlist(mapply(function(l,v) {if(v){(l:1)+1}else{rep(1,l)}}, l=offsets$lengths, v=offsets$values, USE.NAMES=FALSE))
+Hitos$ymax <- Hitos$Altura
+Hitos$ymin + Hitos$offset * delta
+
+##Realizar el Gráfico
+###Crear el mapa base
+base_line <- geom_line(data=BA,aes(Dia,Muertes,colour=Index), size = 2)
+
+###Crear el label de los hitos con fecha
+hitos_lab <- paste(Hitos$Hito,"\n",Hitos$Fecha,sep="")
+
+###Integrando el gráfico
+ggplot() + base_line + theme_minimal() + # escala del mapa de stringency
+  labs(x="Date",y="Average weekly deaths reported",
+       title="Curve of deaths from COVID-19",
+       subtitle="Weekly average deaths reported in Buenos Aires, Argentina",
+       color = "Stringency Index
+      Argentina",
+       caption=("Data source: buenosaires.gob.ar")) + ###labels
+  scale_color_gradientn(colors = c("#ADF84E", "#CCEE18", "#E2DF00", "#EECB00", "#F2B300", "#EE9700", "#E37830", "#D15544", "#B9264E", "#A00052"))+
+  scale_y_continuous(limits=c(-40,100)) + # change y axis scale
+  geom_segment(data = Hitos, mapping=aes(x=Fecha, y=Inicio, xend=Fecha, yend=ymax)) + ###Agregar lineas de Hitos
+  geom_point(data = Hitos, mapping=aes(x=Fecha,y=ymax, shape=Clase), size=2) + ###Agregar puntos de hitos
+  new_scale_color() +
+  geom_text(data = Hitos, mapping=aes(x=Fecha, y=ymax, label=hitos_lab, color = Fase), hjust=-0.01, vjust=0.5, size=2.8)+ ###Agregar leyendas de hitos
+  scale_colour_manual(breaks=c("A-","B-","C-","D","C+","B+","A+"),
+                      values=c('A-'="#FFD8A2", 'B-'="#FAB875", 'C-'="#E19438", 'D'="#C56F00",
+                               'C+'="#A4C6FF", 'B+'="#40A2FF", 'A+'="#006BFF")) +
+  labs(color = "Recovery Phase", shape = "Action type") +
+  guides(alpha=FALSE)
+###Cambio idioma
+Sys.setenv("LANGUAGE"="Es")
+Sys.setlocale("LC_ALL", "Spanish")
+
+```
+
+
+#### Washington D.C., Estados Unidos de América
+
+De la misma manera, pero sin los hitos principales, se replica el análisis para la ciudad de Washington D.C. de EE.UU., dando como resultado la siguiente gráfica:
+
+(Imagen disponible en formato SVG para descargar desde [GitHub](https://github.com/carlosfpardo/covid-transport/blob/main/CurvaWDC.svg) o [Google Drive](https://drive.google.com/file/d/16egX52dee6UcFPgnQA8XBGbZdhZIEo97/view?usp=sharing))
+```{r, warning=FALSE, message=FALSE, results='hide', echo=FALSE, fig.height=8, fig.width=12, fig.align='center'}
+#limpiar RAM y caché
+gc()
+rm(list=ls())
+
+#Instalar Librerias
+library(ggplot2)
+library(dplyr)
+library(readxl)
+library(viridis)
+library("colorspace")
+library(ggnewscale)
+
+
+##Para el caso de muertes promedio semanales
+#Se cargan las bases de excel desde GitHub Desktop
+##Cargar casos promedio semanales en Buenos Aires
+WDC <- read_excel("~/GitHub/covid-transport/Bogota_daily_cases.xlsx", 
+                  sheet = "Washington_DC_cases",
+                  range = "H2:K63",
+                  col_types=c("date","numeric","numeric","numeric"))
+View(WDC)
+
+##Cargar hitos legislación y transporte en Washington DC y Estados Unidos
+Hitos <- read_excel("~/GitHub/covid-transport/Bogota_daily_cases.xlsx", 
+                    sheet = "Washington_DC_cases",
+                    range = "N2:U20",
+                    col_types=c("date","text","text","text","text","skip","numeric","numeric"))
+View(Hitos)
+
+##Cambio de nombres de columnas por practicidad
+colnames(WDC)=c("Dia","Casos","Muertes","Index")
+colnames(Hitos)=c("Fecha","Clase","Fase","Entidad","Hito","Inicio","Altura")
+str(WDC)
+str(Hitos)
+
+#Ajustes de de base de hitos dataframe-gráfica
+baseline = min(WDC$Muertes)
+delta = 0.05 * diff(range(WDC$Muertes))
+Hitos$ymin = baseline
+Hitos$timelapse = c(diff(Hitos$Fecha),2020-03-01)
+Hitos$bump = Hitos$timelapse < 2*370 #~2 años
+offsets <- rle(Hitos$bump)
+Hitos$offset <- unlist(mapply(function(l,v) {if(v){(l:1)+1}else{rep(1,l)}}, l=offsets$lengths, v=offsets$values, USE.NAMES=FALSE))
+Hitos$ymax <- Hitos$Altura
+Hitos$ymin + Hitos$offset * delta
+
+#Realizar el Gráfico
+##Crear el mapa base
+base_line <- geom_line(data=WDC,aes(Dia,Muertes,colour=Index), size = 2)
+
+###Crear el label de los hitos con fecha
+hitos_lab <- paste(Hitos$Hito,"\n",Hitos$Fecha,sep="")
+
+##Integrando el gráfico
+ggplot() + base_line + theme_minimal() + # escala del mapa de stringency
+  labs(x="Semana",y="Muertes semanales promedio",
+       title="Curva de fallecidos por COVID-19",
+       subtitle="Muertes promedio semanales en Washington D.C., EE.UU.",
+       color = "Stringency Index
+      Washington DC",
+       caption=("Fuente de datos: coronavirus.dc.gov")) + ###labels
+  scale_color_gradientn(colors = c("#ADF84E", "#CCEE18", "#E2DF00", "#EECB00", "#F2B300", "#EE9700", "#E37830", "#D15544", "#B9264E", "#A00052"))+
+  scale_y_continuous(limits=c(-9,12)) + # change y axis scale
+  geom_segment(data = Hitos, mapping=aes(x=Fecha, y=Inicio, xend=Fecha, yend=ymax)) + ###Agregar lineas de Hitos
+  geom_point(data = Hitos, mapping=aes(x=Fecha,y=ymax,shape=Clase), size=1.2) + ###Agregar puntos de hitos
+  new_scale_color() +
+  geom_text(data = Hitos, mapping=aes(x=Fecha, y=ymax, label=hitos_lab, color = Fase), hjust=-0.01, vjust=0.5, size=2.8)+ ###Agregar leyendas de hitos
+  scale_colour_manual(breaks=c("A-","B-","C-","D","C+","B+","A+"),
+                      values=c('A-'="#FFD8A2", 'B-'="#FAB875", 'C-'="#E19438", 'D'="#C56F00",
+                               'C+'="#A4C6FF", 'B+'="#40A2FF", 'A+'="#006BFF")) +
+  guides(alpha=FALSE)
+
+```
+Y la versión en inglés
+
+(Imagen disponible en formato SVG para descargar desde [GitHub](https://github.com/carlosfpardo/covid-transport/blob/main/CurveWDC_en.svg) o [Google Drive](https://drive.google.com/file/d/1hJZZz4UFsdWZkDbJ-4_1Ahy3yzUh1_us/view?usp=sharing))
+```{r, warning=FALSE, message=FALSE, results='hide', echo=FALSE, fig.height=8, fig.width=12, fig.align='center'}
+#limpiar RAM y caché
+gc()
+rm(list=ls())
+
+#Instalar Librerias
+library(ggplot2)
+library(dplyr)
+library(readxl)
+library(viridis)
+library("colorspace")
+library(ggnewscale)
+
+##English version
+###Cambio idioma
+Sys.setenv("LANGUAGE"="En")
+Sys.setlocale("LC_ALL", "English")
+
+#Se cargan las bases de excel desde GitHub Desktop
+##Cargar casos promedio semanales en Buenos Aires
+WDC <- read_excel("~/GitHub/covid-transport/Bogota_daily_cases.xlsx", 
+                  sheet = "Washington_DC_cases",
+                  range = "H2:K63",
+                  col_types=c("date","numeric","numeric","numeric"))
+View(WDC)
+
+##Cargar hitos legislación y transporte en Washington DC y Estados Unidos
+Hitos <- read_excel("~/GitHub/covid-transport/Bogota_daily_cases.xlsx", 
+                    sheet = "Washington_DC_cases",
+                    range = "X2:AE20",
+                    col_types=c("date","text","text","text","text","skip","numeric","numeric"))
+View(Hitos)
+
+##Cambio de nombres de columnas por practicidad
+colnames(WDC)=c("Dia","Casos","Muertes","Index")
+colnames(Hitos)=c("Fecha","Clase","Fase","Entidad","Hito","Inicio","Altura")
+str(WDC)
+str(Hitos)
+
+#Ajustes de de base de hitos dataframe-gráfica
+baseline = min(WDC$Muertes)
+delta = 0.05 * diff(range(WDC$Muertes))
+Hitos$ymin = baseline
+Hitos$timelapse = c(diff(Hitos$Fecha),2020-03-01)
+Hitos$bump = Hitos$timelapse < 2*370 #~2 años
+offsets <- rle(Hitos$bump)
+Hitos$offset <- unlist(mapply(function(l,v) {if(v){(l:1)+1}else{rep(1,l)}}, l=offsets$lengths, v=offsets$values, USE.NAMES=FALSE))
+Hitos$ymax <- Hitos$Altura
+Hitos$ymin + Hitos$offset * delta
+
+#Realizar el Gráfico
+##Crear el mapa base
+base_line <- geom_line(data=WDC,aes(Dia,Muertes,colour=Index), size = 2)
+
+###Crear el label de los hitos con fecha
+hitos_lab <- paste(Hitos$Hito,"\n",Hitos$Fecha,sep="")
+
+##Integrando el gráfico
+ggplot() + base_line + theme_minimal() + # escala del mapa de stringency
+  labs(x="Date",y="Average weekly deaths reported",
+       title="Curve of deaths from COVID-19",
+       subtitle="Weekly average deaths reported in Washington D.C., EE.UU.",
+       color = "Stringency Index
+      Washington DC",
+       caption=("Data source: coronavirus.dc.gov")) + ###labels
+  scale_color_gradientn(colors = c("#ADF84E", "#CCEE18", "#E2DF00", "#EECB00", "#F2B300", "#EE9700", "#E37830", "#D15544", "#B9264E", "#A00052"))+
+  scale_y_continuous(limits=c(-9,12)) + # change y axis scale
+  geom_segment(data = Hitos, mapping=aes(x=Fecha, y=Inicio, xend=Fecha, yend=ymax)) + ###Agregar lineas de Hitos
+  geom_point(data = Hitos, mapping=aes(x=Fecha,y=ymax,shape=Clase), size=2) + ###Agregar puntos de hitos
+  new_scale_color() +
+  geom_text(data = Hitos, mapping=aes(x=Fecha, y=ymax, label=hitos_lab, color = Fase), hjust=-0.01, vjust=0.5, size=2.8)+ ###Agregar leyendas de hitos
+  scale_colour_manual(breaks=c("A-","B-","C-","D","C+","B+","A+"),
+                      values=c('A-'="#FFD8A2", 'B-'="#FAB875", 'C-'="#E19438", 'D'="#C56F00",
+                               'C+'="#A4C6FF", 'B+'="#40A2FF", 'A+'="#006BFF")) +
+  labs(color = "Recovery Phase", shape = "Action type") +
+  guides(alpha=FALSE)
+###Cambio idioma
+Sys.setenv("LANGUAGE"="Es")
+Sys.setlocale("LC_ALL", "Spanish")
+
+```
+
+### Con los reportes de Google Mobility
+
+#### Bogotá D. C.,Colombia
+
+```{r, warning=FALSE, message=FALSE, results='hide', echo=FALSE, fig.height=8, fig.width=12, fig.align='center'}
+##Ahora con Google Mobility
+###Cargando la base
+Google_mob <- read_excel("~/GitHub/covid-transport/Bogota_daily_cases.xlsx", 
+                  range = "E2:H60", col_types=c("date","numeric","numeric","numeric"))
+View(Google_mob)
+
+##Cambio de nombres de columnas por practicidad
+colnames(Google_mob)=c("Dia","Casos","Index","Google")
+
+###Integrar el indice de restricción de movilidad de Google para el caso de tiendas
+base_line <- geom_line(data=Google_mob,aes(Dia,Casos,colour=Google), size = 2)
+
+###Integrando el gráfico
+ggplot() + base_line + theme_minimal() +
+  labs(x="Semana",y="Casos semanales promedio",
+       title="Curva de contagios por COVID-19",
+       subtitle="Casos promedio semanales en Bogotá, Colombia",
+       color = "Google mobility Index 
+            Bogotá",
+       caption=("Fuente de datos: saludata.saludcapital.gov.co")) + ###labels
+  #scale_x_date(date_labels="%b %y",date_breaks = "1 month",limits=c(as.Date("2020-03-01"),as.Date("2021-05-01")))+
+  scale_color_gradientn(colors = c("#A00052", "#B9264E", "#D15544", "#E37830", "#EE9700", "#F2B300", "#EECB00", "#E2DF00", "#CCEE18", "#ADF84E"))+
+  scale_y_continuous(limits=c(0,5400)) + # change y axis scale
+  #geom_segment(data = Hitos, mapping=aes(x=Fecha, y=ymin, xend=Fecha, yend=ymax)) + ###Agregar lineas de Hitos
+  #geom_point(data = Hitos, mapping=aes(x=Fecha,y=ymax), size=1.2) + ###Agregar puntos de hitos
+  #geom_text(data = Hitos, mapping=aes(x=Fecha, y=ymax, label=Hito), hjust=-0.01, vjust=0.5, size=2.8)+ ###Agregar leyendas de hitos
+  guides(alpha=FALSE)
+
+```
+
+#### Buenos Aires, Argentina
+
+```{r, warning=FALSE, message=FALSE, results='hide', echo=FALSE, fig.height=8, fig.width=12, fig.align='center'}
+##Ahora con google mobility
+###Cargando la base
+Google_mob <- read_excel("~/GitHub/covid-transport/Bogota_daily_cases.xlsx", 
+                         sheet = "BA_cases", range = "E2:H60", col_types=c("date","numeric","numeric","numeric"))
+View(Google_mob)
+
+###Cambio de nombres de columnas por practicidad
+colnames(Google_mob)=c("Dia","Casos","Index","Google")
+
+###Integrar el indice de restricción de movilidad de Google para el caso de tiendas
+base_line <- geom_line(data=Google_mob,aes(Dia,Casos,colour=Google), size = 2)
+
+###Integrando el gráfico
+ggplot() + base_line + theme_minimal() +
+  labs(x="Semana",y="Casos semanales promedio",
+       title="Curva de contagios por COVID-19",
+       subtitle="Casos promedio semanales en Buenos Aires, Argentina",
+       color = "Google mobility Index 
+            Bogotá",
+       caption=("Fuente de datos: buenosaires.gob.ar")) + ###labels
+  scale_color_gradientn(colors = c("#A00052", "#B9264E", "#D15544", "#E37830", "#EE9700", "#F2B300", "#EECB00", "#E2DF00", "#CCEE18", "#ADF84E"))+
+  scale_y_continuous(limits=c(0,4250)) + # change y axis scale
+  #geom_segment(data = Hitos, mapping=aes(x=Fecha, y=ymin, xend=Fecha, yend=ymax)) + ###Agregar lineas de Hitos
+  #geom_point(data = Hitos, mapping=aes(x=Fecha,y=ymax), size=1.2) + ###Agregar puntos de hitos
+  #geom_text(data = Hitos, mapping=aes(x=Fecha, y=ymax, label=Hito), hjust=-0.01, vjust=0.5, size=2.8)+ ###Agregar leyendas de hitos
+  guides(alpha=FALSE)
+```
+
+#### Washington D.C., Estados Unidos de América
+
+```{r, warning=FALSE, message=FALSE, results='hide', echo=FALSE, fig.height=8, fig.width=12, fig.align='center'}
+##Ahora con google mobility
+###Cargando la base
+Google_mob <- read_excel("~/GitHub/covid-transport/Bogota_daily_cases.xlsx", 
+                         sheet = "Washington_DC_cases", range = "E2:H60", col_types=c("date","numeric","numeric","numeric"))
+View(Google_mob)
+
+###Cambio de nombres de columnas por practicidad
+colnames(Google_mob)=c("Dia","Casos","Index","Google")
+
+###Integrar el indice de restricción de movilidad de Google para el caso de tiendas
+base_line <- geom_line(data=Google_mob,aes(Dia,Casos,colour=Google), size = 2)
+
+###Integrando el gráfico
+ggplot() + base_line + theme_classic() + 
+  labs(x="Semana",y="Casos semanales promedio",
+       title="Curva de contagios por COVID-19",
+       subtitle="Casos promedio semanales en Washington D.C., EE.UU.",
+       color = "Google mobility Index 
+            Bogotá",
+       caption=("Fuente de datos: coronavirus.dc.gov")) + ###labels
+  scale_color_gradientn(colors = c("#A00052", "#B9264E", "#D15544", "#E37830", "#EE9700", "#F2B300", "#EECB00", "#E2DF00", "#CCEE18", "#ADF84E"))+
+  scale_y_continuous(limits=c(0,310)) + # change y axis scale
+  #geom_segment(data = Hitos, mapping=aes(x=Fecha, y=ymin, xend=Fecha, yend=ymax)) + ###Agregar lineas de Hitos
+  #geom_point(data = Hitos, mapping=aes(x=Fecha,y=ymax), size=1.2) + ###Agregar puntos de hitos
+  #geom_text(data = Hitos, mapping=aes(x=Fecha, y=ymax, label=Hito), hjust=-0.01, vjust=0.5, size=2.8)+ ###Agregar leyendas de hitos
+  guides(alpha=FALSE)
+
+```
+
+### Con los registros de calidad del aire para los casos de Delhi y Paris
+#### Para París, Francia
+
+Para el caso de la gráfica cuya curva representa en el eje *Y* la magnitud del *moving average* semanal del Índice de Calidad del Aire (ICA) y la escala de color el ICA diario
+
+(Imagen disponible en formato SVG para descargar desde [GitHub](https://github.com/carlosfpardo/covid-transport/blob/main/AQ_Paris.svg) o [Google Drive](https://drive.google.com/file/d/1IcCmhwvBvlSAMmekEYdI5u_eclC9mld1/view?usp=sharing))
+
+```{r, warning=FALSE, message=FALSE, results='hide', echo=FALSE, fig.height=8, fig.width=12, fig.align='center'}
+#limpiar RAM y caché
+gc()
+rm(list=ls())
+
+#Instalar Librerias
+library(ggplot2)
+library(dplyr)
+library(readxl)
+library(viridis)
+library("colorspace")
+
+#Para el caso de calidad del aire en París, Francia
+#Se cargan las bases de excel desde GitHub Desktop
+##Cargar calidad del aire para Paris
+ICA_Paris <- read_excel("~/GitHub/covid-transport/Bogota_daily_cases.xlsx", 
+                  sheet = "air_quality",
+                  range = "A2:D2600",
+                  col_types=c("date","numeric","numeric","numeric"))
+View(ICA_Paris)
+
+##Cargar hitos legislación y transporte en Paris
+Hitos_Paris <- read_excel("~/GitHub/covid-transport/Bogota_daily_cases.xlsx", 
+                    sheet = "air_quality",
+                    range = "H2:P23",
+                    col_types=c("date","text","text","text","skip","text","text","numeric","numeric"))
+View(Hitos_Paris)
+
+##Cambio de nombres de columnas por practicidad
+colnames(ICA_Paris)=c("Dia","Paris_25","Paris_10","moving_average_week_25")
+colnames(Hitos_Paris)=c("Fecha","Ciudad","Clase","Fase","Hito","Link","Inicio","Altura")
+
+#Ajustes de de base de hitos dataframe-gráfica
+baseline = min(ICA_Paris$Paris_25)
+delta = 0.05 * diff(range(ICA_Paris$Paris_25))
+Hitos_Paris$ymin = baseline
+Hitos_Paris$timelapse = c(diff(Hitos_Paris$Fecha),2014-01-01)
+Hitos_Paris$bump = Hitos_Paris$timelapse < 9*366 #~9 años
+offsets <- rle(Hitos_Paris$bump)
+Hitos_Paris$offset <- unlist(mapply(function(l,v) {if(v){(l:1)+1}else{rep(1,l)}}, l=offsets$lengths, v=offsets$values, USE.NAMES=FALSE))
+Hitos_Paris$ymax <- Hitos_Paris$Altura
+Hitos_Paris$ymin + Hitos_Paris$offset * delta
+
+#Crear el label de los hitos con fecha
+hitos_lab <- paste(Hitos_Paris$Hito,"\n",Hitos_Paris$Fecha,sep="")
+
+#Realizar el Gráfico para Paris
+##Crear el mapa base
+base_line_Paris <- geom_line(data=ICA_Paris,aes(Dia,moving_average_week_25,colour=Paris_25), size = 1.8)
+
+##Integrando el gráfico
+ggplot() + base_line_Paris + theme_minimal() + # escala del mapa de stringency
+  labs(x="Fecha",y="ICA PM 2.5",
+       title="Índice de Calidad del aire en Paris, Francia",
+       subtitle="ICA para material particulado menor a 2.5 micras por metro cúbico",
+       color = "Índice de 
+Calidad del Aire",
+       caption=("aqicn.org")) + ###labels
+  scale_color_gradientn(colours = c("#00FF00", "#FFFF00", "#FFFF00", "#FFA07A", "#FF0000", "#800080", "#800080", "#A0522D", "#A0522D", "#A0522D", "#A0522D", "#A0522D"),limits = c(0,500))+
+  scale_y_continuous(limits=c(0,200)) + # change y axis scale
+  geom_segment(data = Hitos_Paris, mapping=aes(x=Fecha, y=Inicio, xend=Fecha, yend=ymax)) + ###Agregar lineas de Hitos
+  geom_point(data = Hitos_Paris, mapping=aes(x=Fecha,y=ymax,shape=Clase), size=2) + ###Agregar puntos de hitos
+  new_scale_color() +
+  geom_text(data = Hitos_Paris, mapping=aes(x=Fecha, y=ymax, label=hitos_lab, color = Fase), hjust=-0.01, vjust=0.5, size=2.8)+ ###Agregar leyendas de hitos
+  scale_colour_manual(breaks=c("A-","B-","C-","D","C+","B+","A+"),
+                      values=c('A-'="#FFD8A2", 'B-'="#FAB875", 'C-'="#E19438", 'D'="#C56F00",
+                               'C+'="#A4C6FF", 'B+'="#40A2FF", 'A+'="#006BFF")) +
+  guides(alpha=FALSE)
+
+```
+
+Por otro lado, para el caso de la gráfica donde tanto la curva como la escala de color representan la magnitud del *moving average* semanal del Índice de Calidad del Aire (ICA)
+
+(Imagen disponible en formato SVG para descargar desde [GitHub](https://github.com/carlosfpardo/covid-transport/blob/main/AQ_Paris_var.svg) o [Google Drive](https://drive.google.com/file/d/1j3l59OeaTeHMWYDIYiQtKCOXGmZTqsEt/view?usp=sharing))
+
+```{r, warning=FALSE, message=FALSE, results='hide', echo=FALSE, fig.height=8, fig.width=12, fig.align='center'}
+#limpiar RAM y caché
+gc()
+rm(list=ls())
+
+#Instalar Librerias
+library(ggplot2)
+library(dplyr)
+library(readxl)
+library(viridis)
+library("colorspace")
+
+#Para el caso de calidad del aire en París, Francia
+#Se cargan las bases de excel desde GitHub Desktop
+##Cargar calidad del aire para Paris
+ICA_Paris <- read_excel("~/GitHub/covid-transport/Bogota_daily_cases.xlsx", 
+                  sheet = "air_quality",
+                  range = "A2:D2600",
+                  col_types=c("date","numeric","numeric","numeric"))
+View(ICA_Paris)
+
+##Cargar hitos legislación y transporte en Paris
+Hitos_Paris <- read_excel("~/GitHub/covid-transport/Bogota_daily_cases.xlsx", 
+                    sheet = "air_quality",
+                    range = "H2:P23",
+                    col_types=c("date","text","text","text","skip","text","text","numeric","numeric"))
+View(Hitos_Paris)
+
+##Cambio de nombres de columnas por practicidad
+colnames(ICA_Paris)=c("Dia","Paris_25","Paris_10","moving_average_week_25")
+colnames(Hitos_Paris)=c("Fecha","Ciudad","Clase","Fase","Hito","Link","Inicio","Altura")
+
+#Ajustes de de base de hitos dataframe-gráfica
+baseline = min(ICA_Paris$Paris_25)
+delta = 0.05 * diff(range(ICA_Paris$Paris_25))
+Hitos_Paris$ymin = baseline
+Hitos_Paris$timelapse = c(diff(Hitos_Paris$Fecha),2014-01-01)
+Hitos_Paris$bump = Hitos_Paris$timelapse < 9*366 #~9 años
+offsets <- rle(Hitos_Paris$bump)
+Hitos_Paris$offset <- unlist(mapply(function(l,v) {if(v){(l:1)+1}else{rep(1,l)}}, l=offsets$lengths, v=offsets$values, USE.NAMES=FALSE))
+Hitos_Paris$ymax <- Hitos_Paris$Altura
+Hitos_Paris$ymin + Hitos_Paris$offset * delta
+
+#Crear el label de los hitos con fecha
+hitos_lab <- paste(Hitos_Paris$Hito,"\n",Hitos_Paris$Fecha,sep="")
+
+#Realizar el Gráfico para Paris
+##Crear el mapa base
+base_line_Paris <- geom_line(data=ICA_Paris,aes(Dia,moving_average_week_25,colour=moving_average_week_25), size = 1.8)
+
+##Integrando el gráfico
+ggplot() + base_line_Paris + theme_minimal() + # escala del mapa de stringency
+  labs(x="Fecha",y="ICA PM 2.5",
+       title="Índice de Calidad del aire en Paris, Francia",
+       subtitle="ICA para material particulado menor a 2.5 micras por metro cúbico",
+       color = "Índice de 
+Calidad del Aire",
+       caption=("aqicn.org")) + ###labels
+  scale_color_gradientn(colours = c("#00FF00", "#FFFF00", "#FFFF00", "#FFA07A", "#FF0000", "#800080", "#800080", "#A0522D", "#A0522D", "#A0522D", "#A0522D", "#A0522D"),limits = c(0,500))+
+  scale_y_continuous(limits=c(0,200)) + # change y axis scale
+  geom_segment(data = Hitos_Paris, mapping=aes(x=Fecha, y=Inicio, xend=Fecha, yend=ymax)) + ###Agregar lineas de Hitos
+  geom_point(data = Hitos_Paris, mapping=aes(x=Fecha,y=ymax,shape=Clase), size=2) + ###Agregar puntos de hitos
+  new_scale_color() +
+  geom_text(data = Hitos_Paris, mapping=aes(x=Fecha, y=ymax, label=hitos_lab, color = Fase), hjust=-0.01, vjust=0.5, size=2.8)+ ###Agregar leyendas de hitos
+  scale_colour_manual(breaks=c("A-","B-","C-","D","C+","B+","A+"),
+                      values=c('A-'="#FFD8A2", 'B-'="#FAB875", 'C-'="#E19438", 'D'="#C56F00",
+                               'C+'="#A4C6FF", 'B+'="#40A2FF", 'A+'="#006BFF")) +
+  guides(alpha=FALSE)
+
+```
+
+#### Para Delhi, India
+
+Para el caso de la gráfica cuya curva representa en el eje *Y* la magnitud del *moving average* semanal del Índice de Calidad del Aire (ICA) y la escala de color el ICA diario
+
+(Imagen disponible en formato SVG para descargar desde [GitHub](https://github.com/carlosfpardo/covid-transport/blob/main/AQ_Delhi.svg) o [Google Drive](https://drive.google.com/file/d/1NS9v6Bo3fevQl9f0B7umveKYbdnwst-L/view?usp=sharing))
+```{r, warning=FALSE, message=FALSE, results='hide', echo=FALSE, fig.height=8, fig.width=12, fig.align='center'}
+#limpiar RAM y caché
+gc()
+rm(list=ls())
+
+#Instalar Librerias
+library(ggplot2)
+library(dplyr)
+library(readxl)
+library(viridis)
+library("colorspace")
+
+#Para el caso de calidad del aire en Delhi, India
+#Se cargan las bases de excel desde GitHub Desktop
+##Cargar calidad del aire para Delhi
+ICA_Delhi <- read_excel("~/GitHub/covid-transport/Bogota_daily_cases.xlsx", 
+                        sheet = "air_quality",
+                        range = "R2:U1300",
+                        col_types=c("date","numeric","numeric","numeric"))
+View(ICA_Delhi)
+
+##Cargar hitos legislación y transporte en Delhi
+Hitos_Delhi <- read_excel("~/GitHub/covid-transport/Bogota_daily_cases.xlsx", 
+                          sheet = "air_quality",
+                          range = "Y2:AG35",
+                          col_types=c("date","text","text","text","skip","text","text","numeric","numeric"))
+View(Hitos_Delhi)
+
+##Cambio de nombres de columnas por practicidad
+colnames(ICA_Delhi)=c("Dia","Delhi_25","Delhi_10","moving_average_week_25")
+colnames(Hitos_Delhi)=c("Fecha","Ciudad","Clase","Fase","Hito","Link","Inicio","Altura")
+
+#Ajustes de de base de hitos dataframe-gráfica
+baseline = min(ICA_Delhi$Delhi_25)
+delta = 0.05 * diff(range(ICA_Delhi$Delhi_25))
+Hitos_Delhi$ymin = baseline
+Hitos_Delhi$timelapse = c(diff(Hitos_Delhi$Fecha),2018-01-01)
+Hitos_Delhi$bump = Hitos_Delhi$timelapse < 6*366 #~5 años
+offsets <- rle(Hitos_Delhi$bump)
+Hitos_Delhi$offset <- unlist(mapply(function(l,v) {if(v){(l:1)+1}else{rep(1,l)}}, l=offsets$lengths, v=offsets$values, USE.NAMES=FALSE))
+Hitos_Delhi$ymax <- Hitos_Delhi$Altura
+Hitos_Delhi$ymin + Hitos_Delhi$offset * delta
+
+#Crear el label de los hitos con fecha
+hitos_lab <- paste(Hitos_Delhi$Hito,"\n",Hitos_Delhi$Fecha,sep="")
+
+#Realizar el Gráfico para Paris
+##Crear el mapa base
+base_line_Delhi <- geom_line(data=ICA_Delhi,aes(Dia,moving_average_week_25,colour=Delhi_25), size = 1.8)
+
+##Integrando el gráfico
+ggplot() + base_line_Delhi + theme_minimal() + # escala del mapa de stringency
+  labs(x="Fecha",y="ICA PM 2.5",
+       title="Índice de Calidad del aire en Delhi, India",
+       subtitle="ICA para material particulado menor a 2.5 micras por metro cúbico",
+       color = "Índice de 
+Calidad del Aire",
+       caption=("aqicn.org")) + ###labels
+  scale_color_gradientn(colours = c("#00FF00", "#FFFF00", "#FFFF00", "#FFA07A", "#FF0000", "#800080", "#800080", "#A0522D", "#A0522D", "#A0522D", "#A0522D", "#A0522D"),limits = c(0,500))+
+  scale_y_continuous(limits=c(0,600)) + # change y axis scale
+  geom_segment(data = Hitos_Delhi, mapping=aes(x=Fecha, y=Inicio, xend=Fecha, yend=ymax)) + ###Agregar lineas de Hitos
+  geom_point(data = Hitos_Delhi, mapping=aes(x=Fecha,y=ymax,shape=Clase), size=2) + ###Agregar puntos de hitos
+  new_scale_color() +
+  geom_text(data = Hitos_Delhi, mapping=aes(x=Fecha, y=ymax, label=hitos_lab, color = Fase), hjust=-0.01, vjust=0.5, size=2.8)+ ###Agregar leyendas de hitos
+  scale_colour_manual(breaks=c("A-","B-","C-","D","C+","B+","A+"),
+                      values=c('A-'="#FFD8A2", 'B-'="#FAB875", 'C-'="#E19438", 'D'="#C56F00",
+                               'C+'="#A4C6FF", 'B+'="#40A2FF", 'A+'="#006BFF")) +
+  guides(alpha=FALSE)
+
+```
+
+Por otro lado, para el caso de la gráfica donde tanto la curva como la escala de color representan la magnitud del *moving average* semanal del Índice de Calidad del Aire (ICA)
+
+(Imagen disponible en formato SVG para descargar desde [GitHub](https://github.com/carlosfpardo/covid-transport/blob/main/AQ_Delhi_var.svg) o [Google Drive](https://drive.google.com/file/d/1XmmAtuGDPKPAdtEDjhLg3826WsmYEc0F/view?usp=sharing))
+
+```{r, warning=FALSE, message=FALSE, results='hide', echo=FALSE, fig.height=8, fig.width=12, fig.align='center'}
+#limpiar RAM y caché
+gc()
+rm(list=ls())
+
+#Instalar Librerias
+library(ggplot2)
+library(dplyr)
+library(readxl)
+library(viridis)
+library("colorspace")
+
+#Para el caso de calidad del aire en Delhi, India
+#Se cargan las bases de excel desde GitHub Desktop
+##Cargar calidad del aire para Delhi
+ICA_Delhi <- read_excel("~/GitHub/covid-transport/Bogota_daily_cases.xlsx", 
+                        sheet = "air_quality",
+                        range = "R2:U1300",
+                        col_types=c("date","numeric","numeric","numeric"))
+View(ICA_Delhi)
+
+##Cargar hitos legislación y transporte en Delhi
+Hitos_Delhi <- read_excel("~/GitHub/covid-transport/Bogota_daily_cases.xlsx", 
+                          sheet = "air_quality",
+                          range = "Y2:AG35",
+                          col_types=c("date","text","text","text","skip","text","text","numeric","numeric"))
+View(Hitos_Delhi)
+
+##Cambio de nombres de columnas por practicidad
+colnames(ICA_Delhi)=c("Dia","Delhi_25","Delhi_10","moving_average_week_25")
+colnames(Hitos_Delhi)=c("Fecha","Ciudad","Clase","Fase","Hito","Link","Inicio","Altura")
+
+#Ajustes de de base de hitos dataframe-gráfica
+baseline = min(ICA_Delhi$Delhi_25)
+delta = 0.05 * diff(range(ICA_Delhi$Delhi_25))
+Hitos_Delhi$ymin = baseline
+Hitos_Delhi$timelapse = c(diff(Hitos_Delhi$Fecha),2018-01-01)
+Hitos_Delhi$bump = Hitos_Delhi$timelapse < 6*366 #~5 años
+offsets <- rle(Hitos_Delhi$bump)
+Hitos_Delhi$offset <- unlist(mapply(function(l,v) {if(v){(l:1)+1}else{rep(1,l)}}, l=offsets$lengths, v=offsets$values, USE.NAMES=FALSE))
+Hitos_Delhi$ymax <- Hitos_Delhi$Altura
+Hitos_Delhi$ymin + Hitos_Delhi$offset * delta
+
+#Crear el label de los hitos con fecha
+hitos_lab <- paste(Hitos_Delhi$Hito,"\n",Hitos_Delhi$Fecha,sep="")
+
+#Realizar el Gráfico para Paris
+##Crear el mapa base
+base_line_Delhi <- geom_line(data=ICA_Delhi,aes(Dia,moving_average_week_25,colour=moving_average_week_25), size = 1.8)
+
+##Integrando el gráfico
+ggplot() + base_line_Delhi + theme_minimal() + # escala del mapa de stringency
+  labs(x="Fecha",y="ICA PM 2.5",
+       title="Índice de Calidad del aire en Delhi, India",
+       subtitle="ICA para material particulado menor a 2.5 micras por metro cúbico",
+       color = "Índice de 
+Calidad del Aire",
+       caption=("aqicn.org")) + ###labels
+  scale_color_gradientn(colours = c("#00FF00", "#FFFF00", "#FFFF00", "#FFA07A", "#FF0000", "#800080", "#800080", "#A0522D", "#A0522D", "#A0522D", "#A0522D", "#A0522D"),limits = c(0,500))+
+  scale_y_continuous(limits=c(0,600)) + # change y axis scale
+  geom_segment(data = Hitos_Delhi, mapping=aes(x=Fecha, y=Inicio, xend=Fecha, yend=ymax)) + ###Agregar lineas de Hitos
+  geom_point(data = Hitos_Delhi, mapping=aes(x=Fecha,y=ymax,shape=Clase), size=2) + ###Agregar puntos de hitos
+  new_scale_color() +
+  geom_text(data = Hitos_Delhi, mapping=aes(x=Fecha, y=ymax, label=hitos_lab, color = Fase), hjust=-0.01, vjust=0.5, size=2.8)+ ###Agregar leyendas de hitos
+  scale_colour_manual(breaks=c("A-","B-","C-","D","C+","B+","A+"),
+                      values=c('A-'="#FFD8A2", 'B-'="#FAB875", 'C-'="#E19438", 'D'="#C56F00",
+                               'C+'="#A4C6FF", 'B+'="#40A2FF", 'A+'="#006BFF")) +
+  guides(alpha=FALSE)
+
+```
+
+###### *Fuentes de datos*
+Las principales fuentes de datos  fueron las páginas web oficiales de cada ciudad, junto con la ya citada página de la [Universidad de Oxford](https://www.bsg.ox.ac.uk/research/research-projects/covid-19-government-response-tracker) para el *Stringency Index*:
+  
+  1. [Bogotá D. C., Colombia](https://saludata.saludcapital.gov.co/osb/index.php/datos-de-salud/enfermedades-trasmisibles/covid19/)
+  
+  2. [Buenos Aires, Argentina](https://www.buenosaires.gob.ar/coronavirus/datos/situacion-epidemiologica)
+  
+  3. [Washington D. C., EE.UU.](https://microstrategy.dc.gov/MicroStrategyLibrary/app/E52A533B11EA01A28FE80080EFC53DA4/30FE682111EA6FB5A6620080EF357B1F/WAC15308F873B43F3883EEB1FEF891057--K46)
+
+Adicionalmente, para datos más específicos puede consultar [esta hoja de cálculo](https://docs.google.com/spreadsheets/d/1iv-7A7EtICOdX0LQv-N-4CKE4aP0Phex1oMwZolhtS0/edit?usp=sharing). Allí se diferencian las diferentes fuentes oficiales tanto principales como de apoyo o alternativas de todos los datos recolectados.
+
