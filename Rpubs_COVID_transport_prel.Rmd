@@ -634,7 +634,7 @@ Sys.setlocale("LC_ALL", "Spanish")
 
 Para el caso de la gráfica cuya curva representa en el eje *Y* la magnitud del *moving average* semanal del Índice de Calidad del Aire (ICA) y la escala de color el ICA diario
 
-(Imagen disponible en formato SVG para descargar desde [GitHub](https://github.com/carlosfpardo/covid-transport/blob/main/AQ_Paris.svg) o [Google Drive](https://drive.google.com/file/d/1IcCmhwvBvlSAMmekEYdI5u_eclC9mld1/view?usp=sharing))
+(Imagen disponible en formato SVG para descargar desde [GitHub](https://github.com/carlosfpardo/covid-transport/blob/main/AQ_Paris.svg) o [Google Drive](https://drive.google.com/file/d/13z4I3UragZTbyD-jdEpb5UqHiQx_ZeQ8/view?usp=sharing))
 
 ```{r, warning=FALSE, message=FALSE, results='hide', echo=FALSE, fig.height=8, fig.width=12, fig.align='center'}
 #limpiar RAM y caché
@@ -727,7 +727,7 @@ representada por el promedio de 7 días,
 
 Por otro lado, para el caso de la gráfica donde tanto la curva como la escala de color representan la magnitud del *moving average* semanal del Índice de Calidad del Aire (ICA)
 
-(Imagen disponible en formato SVG para descargar desde [GitHub](https://github.com/carlosfpardo/covid-transport/blob/main/AQ_Paris_var.svg) o [Google Drive](https://drive.google.com/file/d/1j3l59OeaTeHMWYDIYiQtKCOXGmZTqsEt/view?usp=sharing))
+(Imagen disponible en formato SVG para descargar desde [GitHub](https://github.com/carlosfpardo/covid-transport/blob/main/AQ_Paris_var.svg) o [Google Drive](https://drive.google.com/file/d/1k4H8e5vWQaVqsBq3IYcThW7D7vgpqB3V/view?usp=sharing))
 
 ```{r, warning=FALSE, message=FALSE, results='hide', echo=FALSE, fig.height=8, fig.width=12, fig.align='center'}
 #limpiar RAM y caché
@@ -822,7 +822,7 @@ representada por el promedio de 7 días,
 
 Para el caso de la gráfica cuya curva representa en el eje *Y* la magnitud del *moving average* semanal del Índice de Calidad del Aire (ICA) y la escala de color el ICA diario
 
-(Imagen disponible en formato SVG para descargar desde [GitHub](https://github.com/carlosfpardo/covid-transport/blob/main/AQ_Delhi.svg) o [Google Drive](https://drive.google.com/file/d/1NS9v6Bo3fevQl9f0B7umveKYbdnwst-L/view?usp=sharing))
+(Imagen disponible en formato SVG para descargar desde [GitHub](https://github.com/carlosfpardo/covid-transport/blob/main/AQ_Delhi.svg) o [Google Drive](https://drive.google.com/file/d/1wynAc3XRAIzr_4e-z7ZGxQ7SzUoFYb1m/view?usp=sharing))
 ```{r, warning=FALSE, message=FALSE, results='hide', echo=FALSE, fig.height=8, fig.width=12, fig.align='center'}
 #limpiar RAM y caché
 gc()
@@ -912,7 +912,7 @@ representada por el promedio de 7 días,
 
 Por otro lado, para el caso de la gráfica donde tanto la curva como la escala de color representan la magnitud del *moving average* semanal del Índice de Calidad del Aire (ICA)
 
-(Imagen disponible en formato SVG para descargar desde [GitHub](https://github.com/carlosfpardo/covid-transport/blob/main/AQ_Delhi_var.svg) o [Google Drive](https://drive.google.com/file/d/1XmmAtuGDPKPAdtEDjhLg3826WsmYEc0F/view?usp=sharing))
+(Imagen disponible en formato SVG para descargar desde [GitHub](https://github.com/carlosfpardo/covid-transport/blob/main/AQ_Delhi_var.svg) o [Google Drive](https://drive.google.com/file/d/1mqZmWT7SaqYFJTeOd3ksrVHFZjRDHFRF/view?usp=sharing))
 
 ```{r, warning=FALSE, message=FALSE, results='hide', echo=FALSE, fig.height=8, fig.width=12, fig.align='center'}
 #limpiar RAM y caché
