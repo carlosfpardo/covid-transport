@@ -2,130 +2,306 @@
 gc()
 rm(list=ls())
 
+install.packages("ggnewscale")
+install.packages('ggthemes', dependencies = TRUE)
+
 #Instalar Librerias
 library(ggplot2)
 library(dplyr)
 library(readxl)
 library(viridis)
+library(lubridate)
 library("colorspace")
-install.packages("ggnewscale")
+library(ggthemes)
 library(ggnewscale)
+
 
 #Para el caso de calidad del aire en París, Francia
 #Se cargan las bases de excel desde GitHub Desktop
 ##Cargar calidad del aire para Paris
 ICA_Paris <- read_excel("~/GitHub/covid-transport/Bogota_daily_cases.xlsx", 
-                  sheet = "air_quality",
-                  range = "A2:D2600",
-                  col_types=c("date","numeric","numeric","numeric"))
+                        sheet = "air_quality",
+                        range = "A2:N2687",
+                        col_types=c("date","numeric","numeric","numeric","skip","skip","text","text","text","skip","text","text","numeric","numeric"))
 View(ICA_Paris)
 
-##Cargar hitos legislación y transporte en Paris
-Hitos_Paris <- read_excel("~/GitHub/covid-transport/Bogota_daily_cases.xlsx", 
-                    sheet = "air_quality",
-                    range = "H2:P23",
-                    col_types=c("date","text","text","text","skip","text","text","numeric","numeric"))
-View(Hitos_Paris)
-
 ##Cambio de nombres de columnas por practicidad
-colnames(ICA_Paris)=c("Dia","Paris_25","Paris_10","moving_average_week_25")
-colnames(Hitos_Paris)=c("Fecha","Ciudad","Clase","Fase","Hito","Link","Inicio","Altura")
+colnames(ICA_Paris)=c("Dia","Paris_25","Paris_10","moving_average_week_25","Ciudad","Clase","Fase","Hito","Link","Inicio","Altura")
 
 #Ajustes de de base de hitos dataframe-gráfica
 baseline = min(ICA_Paris$Paris_25)
 delta = 0.05 * diff(range(ICA_Paris$Paris_25))
-Hitos_Paris$ymin = baseline
-Hitos_Paris$timelapse = c(diff(Hitos_Paris$Fecha),2014-01-01)
-Hitos_Paris$bump = Hitos_Paris$timelapse < 9*366 #~9 años
-offsets <- rle(Hitos_Paris$bump)
-Hitos_Paris$offset <- unlist(mapply(function(l,v) {if(v){(l:1)+1}else{rep(1,l)}}, l=offsets$lengths, v=offsets$values, USE.NAMES=FALSE))
-Hitos_Paris$ymax <- Hitos_Paris$Altura
-Hitos_Paris$ymin + Hitos_Paris$offset * delta
+ICA_Paris$ymin = baseline
+ICA_Paris$timelapse = c(diff(ICA_Paris$Dia),2014-01-01)
+ICA_Paris$bump = ICA_Paris$timelapse < 9*366 #~9 años
+offsets <- rle(ICA_Paris$bump)
+ICA_Paris$offset <- unlist(mapply(function(l,v) {if(v){(l:1)+1}else{rep(1,l)}}, l=offsets$lengths, v=offsets$values, USE.NAMES=FALSE))
+ICA_Paris$ymax <- ICA_Paris$Altura
+ICA_Paris$ymin + ICA_Paris$offset * delta
+
+str(ICA_Paris)
+ICA_Paris$Dia <- as.Date(ICA_Paris$Dia)
+ymd(ICA_Paris$Dia)
+str(ICA_Paris$Dia)
+
 
 #Crear el label de los hitos con fecha
-hitos_lab <- paste(Hitos_Paris$Hito,"\n",Hitos_Paris$Fecha,sep="")
+hitos_lab <- paste(ICA_Paris$Hito,"\n",ICA_Paris$Dia,sep="")
+my_caption <-expression(paste(italic(bold("Fuente de datos:")), italic("    ICA: "), "aqicn.org.", italic("    Eventos: "), "Varias fuentes."), size = 2)
 
 #Realizar el Gráfico para Paris
 ##Crear el mapa base
 base_line_Paris <- geom_line(data=ICA_Paris,aes(Dia,moving_average_week_25,colour=Paris_25), size = 1.8)
 
 ##Integrando el gráfico
-ggplot() + base_line_Paris + theme_minimal() + # escala del mapa de stringency
-  labs(x="Fecha",y="ICA PM 2.5",
+ggplot() + base_line_Paris + theme_minimal () + # escala del mapa de stringency
+  theme(axis.title.x = element_blank(),
+        plot.title = element_text(family='',hjust = 0.5, size=26),
+        plot.subtitle = element_text(hjust = 0.5),
+        legend.title = element_text(face = "bold"),
+        plot.margin = unit(c(1, 5, 1, 1), "lines")) +
+  coord_cartesian(clip = "off") +
+  scale_x_date(date_labels='\n%Y',
+               date_breaks="year") +
+  labs(y="ICA PM 2.5",
        title="Índice de Calidad del aire en Paris, Francia",
        subtitle="ICA para material particulado menor a 2.5 micras por metro cúbico",
-       color = "Índice de 
-Calidad del Aire",
-       caption=("aqicn.org")) + ###labels
+       color = "     Índice de \nCalidad del Aire*",
+       caption=(my_caption)) + ###labels
+  annotate(geom="text", x=as.Date("2013-11-01"), y=85, size = 3.5,
+           label="Umbral \nsegún UE", color = "red") +
+  geom_text(mapping=aes(x=max(ICA_Paris$Dia), y=0, label="       *La altura de la curva está
+representada por el promedio de 7 días,
+  mientras que el color hace referencia
+          al valor diario del ICA.",face = "italic"), hjust=-0.5, vjust=-3.2, size=3)+  
   scale_color_gradientn(colours = c("#00FF00", "#FFFF00", "#FFFF00", "#FFA07A", "#FF0000", "#800080", "#800080", "#A0522D", "#A0522D", "#A0522D", "#A0522D", "#A0522D"),limits = c(0,500))+
-  scale_y_continuous(limits=c(0,200)) + # change y axis scale
-  geom_segment(data = Hitos_Paris, mapping=aes(x=Fecha, y=Inicio, xend=Fecha, yend=ymax)) + ###Agregar lineas de Hitos
-  geom_point(data = Hitos_Paris, mapping=aes(x=Fecha,y=ymax,shape=Clase), size=2) + ###Agregar puntos de hitos
+  scale_y_continuous(expand  = c(0,0),limits=c(0,200)) + # change y axis scale
+  geom_segment(data = ICA_Paris, mapping=aes(x=Dia, y=Inicio, xend=Dia, yend=ymax)) + ###Agregar lineas de Hitos
+  geom_point(data = ICA_Paris, mapping=aes(x=Dia,y=ymax,shape=Clase), size=2) + ###Agregar puntos de hitos
+  geom_hline(yintercept=78.12875536, color="red", size=.9) +
+  scale_shape_discrete(name = "Tipo de evento", labels = c("General", "Transporte", "")) +
   new_scale_color() +
-  geom_text(data = Hitos_Paris, mapping=aes(x=Fecha, y=ymax, label=hitos_lab, color = Fase), hjust=-0.01, vjust=0.5, size=2.8)+ ###Agregar leyendas de hitos
+  geom_text(data = ICA_Paris, mapping=aes(x=Dia, y=ymax, label=hitos_lab, color = Fase), hjust=-0.01, vjust=0.5, size=2.8)+ ###Agregar leyendas de hitos
   scale_colour_manual(breaks=c("A-","B-","C-","D","C+","B+","A+"),
                       values=c('A-'="#FFD8A2", 'B-'="#FAB875", 'C-'="#E19438", 'D'="#C56F00",
                                'C+'="#A4C6FF", 'B+'="#40A2FF", 'A+'="#006BFF")) +
-  guides(alpha=FALSE)
+  guides(alpha=FALSE, color=FALSE)
+
+#Para la gráfica con una sola variable
+#Se cargan las bases de excel desde GitHub Desktop
+##Cargar calidad del aire para Paris
+ICA_Paris <- read_excel("~/GitHub/covid-transport/Bogota_daily_cases.xlsx", 
+                        sheet = "air_quality",
+                        range = "A2:N2687",
+                        col_types=c("date","numeric","numeric","numeric","skip","skip","text","text","text","skip","text","text","numeric","numeric"))
+View(ICA_Paris)
+
+##Cambio de nombres de columnas por practicidad
+colnames(ICA_Paris)=c("Dia","Paris_25","Paris_10","moving_average_week_25","Ciudad","Clase","Fase","Hito","Link","Inicio","Altura")
+
+#Ajustes de de base de hitos dataframe-gráfica
+baseline = min(ICA_Paris$Paris_25)
+delta = 0.05 * diff(range(ICA_Paris$Paris_25))
+ICA_Paris$ymin = baseline
+ICA_Paris$timelapse = c(diff(ICA_Paris$Dia),2014-01-01)
+ICA_Paris$bump = ICA_Paris$timelapse < 9*366 #~9 años
+offsets <- rle(ICA_Paris$bump)
+ICA_Paris$offset <- unlist(mapply(function(l,v) {if(v){(l:1)+1}else{rep(1,l)}}, l=offsets$lengths, v=offsets$values, USE.NAMES=FALSE))
+ICA_Paris$ymax <- ICA_Paris$Altura
+ICA_Paris$ymin + ICA_Paris$offset * delta
+
+str(ICA_Paris)
+ICA_Paris$Dia <- as.Date(ICA_Paris$Dia)
+ymd(ICA_Paris$Dia)
+str(ICA_Paris$Dia)
+
+#Crear el label de los hitos con fecha
+hitos_lab <- paste(ICA_Paris$Hito,"\n",ICA_Paris$Dia,sep="")
+my_caption <-expression(paste(italic(bold("Fuente de datos:")), italic("    ICA: "), "aqicn.org.", italic("    Eventos: "), "Varias fuentes."), size = 2)
+
+#Realizar el Gráfico para Paris
+##Crear el mapa base
+base_line_Paris <- geom_line(data=ICA_Paris,aes(Dia,moving_average_week_25,colour=moving_average_week_25), size = 1.8)
+
+##Integrando el gráfico
+ggplot() + base_line_Paris + theme_minimal () + # escala del mapa de stringency
+  theme(axis.title.x = element_blank(),
+        plot.title = element_text(family='',hjust = 0.5, size=26),
+        plot.subtitle = element_text(hjust = 0.5),
+        legend.title = element_text(face = "bold"),
+        plot.margin = unit(c(1, 5, 1, 1), "lines")) +
+  coord_cartesian(clip = "off") +
+  scale_x_date(date_labels='\n%Y',
+               date_breaks="year") +
+  labs(y="ICA PM 2.5",
+       title="Índice de Calidad del aire en Paris, Francia",
+       subtitle="ICA para material particulado menor a 2.5 micras por metro cúbico",
+       color = "     Índice de \nCalidad del Aire*",
+       caption=(my_caption)) + ###labels
+  annotate(geom="text", x=as.Date("2013-11-01"), y=85, size = 3.5,
+           label="Umbral \nsegún UE", color = "red") +
+  geom_text(mapping=aes(x=max(ICA_Paris$Dia), y=0, label="       *La altura de la curva está
+representada por el promedio de 7 días,
+  mientras que el color hace referencia
+          al valor diario del ICA.",face = "italic"), hjust=-0.5, vjust=-3.2, size=3)+  
+  scale_color_gradientn(colours = c("#00FF00", "#FFFF00", "#FFFF00", "#FFA07A", "#FF0000", "#800080", "#800080", "#A0522D", "#A0522D", "#A0522D", "#A0522D", "#A0522D"),limits = c(0,500))+
+  scale_y_continuous(expand  = c(0,0),limits=c(0,200)) + # change y axis scale
+  geom_segment(data = ICA_Paris, mapping=aes(x=Dia, y=Inicio, xend=Dia, yend=ymax)) + ###Agregar lineas de Hitos
+  geom_point(data = ICA_Paris, mapping=aes(x=Dia,y=ymax,shape=Clase), size=2) + ###Agregar puntos de hitos
+  geom_hline(yintercept=78.12875536, color="red", size=.9) +
+  scale_shape_discrete(name = "Tipo de evento", labels = c("General", "Transporte", "")) +
+  new_scale_color() +
+  geom_text(data = ICA_Paris, mapping=aes(x=Dia, y=ymax, label=hitos_lab, color = Fase), hjust=-0.01, vjust=0.5, size=2.8)+ ###Agregar leyendas de hitos
+  scale_colour_manual(breaks=c("A-","B-","C-","D","C+","B+","A+"),
+                      values=c('A-'="#FFD8A2", 'B-'="#FAB875", 'C-'="#E19438", 'D'="#C56F00",
+                               'C+'="#A4C6FF", 'B+'="#40A2FF", 'A+'="#006BFF")) +
+  guides(alpha=FALSE, color=FALSE)
+
+
+
+
 
 #Para el caso de calidad del aire en Delhi, India
 #Se cargan las bases de excel desde GitHub Desktop
-##Cargar calidad del aire para Delhi
+##Cargar calidad del aire para Paris
 ICA_Delhi <- read_excel("~/GitHub/covid-transport/Bogota_daily_cases.xlsx", 
                         sheet = "air_quality",
-                        range = "R2:U1300",
-                        col_types=c("date","numeric","numeric","numeric"))
+                        range = "P2:AC1385",
+                        col_types=c("date","numeric","numeric","numeric","skip","skip","text","text","text","skip","text","text","numeric","numeric"))
 View(ICA_Delhi)
 
-##Cargar hitos legislación y transporte en Delhi
-Hitos_Delhi <- read_excel("~/GitHub/covid-transport/Bogota_daily_cases.xlsx", 
-                          sheet = "air_quality",
-                          range = "Y2:AG35",
-                          col_types=c("date","text","text","text","skip","text","text","numeric","numeric"))
-View(Hitos_Delhi)
-
 ##Cambio de nombres de columnas por practicidad
-colnames(ICA_Delhi)=c("Dia","Delhi_25","Delhi_10","moving_average_week_25")
-colnames(Hitos_Delhi)=c("Fecha","Ciudad","Clase","Fase","Hito","Link","Inicio","Altura")
+colnames(ICA_Delhi)=c("Dia","Delhi_25","Delhi_10","moving_average_week_25","Ciudad","Clase","Fase","Hito","Link","Inicio","Altura")
 
 #Ajustes de de base de hitos dataframe-gráfica
-baseline = min(ICA_Delhi$Delhi_25)
+baseline = min(ICA_Paris$Paris_25)
 delta = 0.05 * diff(range(ICA_Delhi$Delhi_25))
-Hitos_Delhi$ymin = baseline
-Hitos_Delhi$timelapse = c(diff(Hitos_Delhi$Fecha),2018-01-01)
-Hitos_Delhi$bump = Hitos_Delhi$timelapse < 6*366 #~5 años
-offsets <- rle(Hitos_Delhi$bump)
-Hitos_Delhi$offset <- unlist(mapply(function(l,v) {if(v){(l:1)+1}else{rep(1,l)}}, l=offsets$lengths, v=offsets$values, USE.NAMES=FALSE))
-Hitos_Delhi$ymax <- Hitos_Delhi$Altura
-Hitos_Delhi$ymin + Hitos_Delhi$offset * delta
+ICA_Delhi$ymin = baseline
+ICA_Delhi$timelapse = c(diff(ICA_Delhi$Dia),2014-01-01)
+ICA_Delhi$bump = ICA_Delhi$timelapse < 9*366 #~9 años
+offsets <- rle(ICA_Delhi$bump)
+ICA_Delhi$offset <- unlist(mapply(function(l,v) {if(v){(l:1)+1}else{rep(1,l)}}, l=offsets$lengths, v=offsets$values, USE.NAMES=FALSE))
+ICA_Delhi$ymax <- ICA_Delhi$Altura
+ICA_Delhi$ymin + ICA_Delhi$offset * delta
+
+str(ICA_Delhi)
+ICA_Delhi$Dia <- as.Date(ICA_Delhi$Dia)
+ymd(ICA_Delhi$Dia)
+str(ICA_Delhi$Dia)
 
 #Crear el label de los hitos con fecha
-hitos_lab <- paste(Hitos_Delhi$Hito,"\n",Hitos_Delhi$Fecha,sep="")
+hitos_lab <- paste(ICA_Delhi$Hito,"\n",ICA_Delhi$Dia,sep="")
+my_caption <-expression(paste(italic(bold("Fuente de datos:")), italic("    ICA: "), "aqicn.org.", italic("    Eventos: "), "Varias fuentes."), size = 2)
 
 #Realizar el Gráfico para Paris
 ##Crear el mapa base
 base_line_Delhi <- geom_line(data=ICA_Delhi,aes(Dia,moving_average_week_25,colour=Delhi_25), size = 1.8)
 
 ##Integrando el gráfico
-ggplot() + base_line_Delhi + theme_minimal() + # escala del mapa de stringency
-  labs(x="Fecha",y="ICA PM 2.5",
-       title="Índice de Calidad del aire en Delhi, India",
-       subtitle="ICA para material particulado menor a 2.5 micras por metro cúbico",
-       color = "Índice de 
-Calidad del Aire",
-       caption=("aqicn.org")) + ###labels
+ggplot() + base_line_Delhi + theme_minimal () + # escala del mapa de stringency
+  theme(axis.title.x = element_blank(),
+        plot.title = element_text(family='',hjust = 0.5, size=26),
+        plot.subtitle = element_text(hjust = 0.5),
+        legend.title = element_text(face = "bold"),
+        plot.margin = unit(c(1, 5, 1, 1), "lines")) +
+  coord_cartesian(clip = "off") +
+  scale_x_date(date_labels='\n%Y',
+               date_breaks="year") +
+  labs(y="ICA PM 2.5",
+        title="Índice de Calidad del aire en Delhi, India",
+        subtitle="ICA para material particulado menor a 2.5 micras por metro cúbico",
+        color = "    Índice de\nCalidad del Aire*",
+        caption=(my_caption)) + ###labels
+  annotate(geom="text", x=as.Date("2021-10-01"), y=275, size = 3.5,
+           label="Umbral según\nGobierno de India", color = "red") +
+  geom_text(mapping=aes(x=max(ICA_Delhi$Dia), y=0, label="         *La altura de la curva está
+representada por el promedio de 7 días,
+  mientras que el color hace referencia
+            al valor diario del ICA.",face = "italic"), hjust=-0.7, vjust=-3.8, size=3)+  
   scale_color_gradientn(colours = c("#00FF00", "#FFFF00", "#FFFF00", "#FFA07A", "#FF0000", "#800080", "#800080", "#A0522D", "#A0522D", "#A0522D", "#A0522D", "#A0522D"),limits = c(0,500))+
-  scale_y_continuous(limits=c(0,600)) + # change y axis scale
-  geom_segment(data = Hitos_Delhi, mapping=aes(x=Fecha, y=Inicio, xend=Fecha, yend=ymax)) + ###Agregar lineas de Hitos
-  geom_point(data = Hitos_Delhi, mapping=aes(x=Fecha,y=ymax,shape=Clase), size=2) + ###Agregar puntos de hitos
+  scale_y_continuous(expand  = c(0,0),limits=c(0,600)) + # change y axis scale
+  geom_segment(data = ICA_Delhi, mapping=aes(x=Dia, y=Inicio, xend=Dia, yend=ymax)) + ###Agregar lineas de Hitos
+  geom_point(data = ICA_Delhi, mapping=aes(x=Dia,y=ymax,shape = Clase), size=2) + ###Agregar puntos de hitos
+  geom_hline(yintercept=250, color="red", size=.9) +
+  scale_shape_discrete(name = "Tipo de evento", labels = c("General", "Transporte", "")) +
   new_scale_color() +
-  geom_text(data = Hitos_Delhi, mapping=aes(x=Fecha, y=ymax, label=hitos_lab, color = Fase), hjust=-0.01, vjust=0.5, size=2.8)+ ###Agregar leyendas de hitos
+  geom_text(data = ICA_Delhi, mapping=aes(x=Dia, y=ymax, label=hitos_lab, color = Fase), hjust=-0.01, vjust=0.5, size=2.8)+ ###Agregar leyendas de hitos
   scale_colour_manual(breaks=c("A-","B-","C-","D","C+","B+","A+"),
                       values=c('A-'="#FFD8A2", 'B-'="#FAB875", 'C-'="#E19438", 'D'="#C56F00",
                                'C+'="#A4C6FF", 'B+'="#40A2FF", 'A+'="#006BFF")) +
-  guides(alpha=FALSE)
+  guides(alpha=FALSE, color=FALSE)
 
+#Para el caso de gráfica con una sola variable
+#Se cargan las bases de excel desde GitHub Desktop
+##Cargar calidad del aire para Paris
+ICA_Delhi <- read_excel("~/GitHub/covid-transport/Bogota_daily_cases.xlsx", 
+                        sheet = "air_quality",
+                        range = "P2:AC1385",
+                        col_types=c("date","numeric","numeric","numeric","skip","skip","text","text","text","skip","text","text","numeric","numeric"))
+View(ICA_Delhi)
 
+##Cambio de nombres de columnas por practicidad
+colnames(ICA_Delhi)=c("Dia","Delhi_25","Delhi_10","moving_average_week_25","Ciudad","Clase","Fase","Hito","Link","Inicio","Altura")
+
+#Ajustes de de base de hitos dataframe-gráfica
+baseline = min(ICA_Paris$Paris_25)
+delta = 0.05 * diff(range(ICA_Delhi$Delhi_25))
+ICA_Delhi$ymin = baseline
+ICA_Delhi$timelapse = c(diff(ICA_Delhi$Dia),2014-01-01)
+ICA_Delhi$bump = ICA_Delhi$timelapse < 9*366 #~9 años
+offsets <- rle(ICA_Delhi$bump)
+ICA_Delhi$offset <- unlist(mapply(function(l,v) {if(v){(l:1)+1}else{rep(1,l)}}, l=offsets$lengths, v=offsets$values, USE.NAMES=FALSE))
+ICA_Delhi$ymax <- ICA_Delhi$Altura
+ICA_Delhi$ymin + ICA_Delhi$offset * delta
+
+str(ICA_Delhi)
+ICA_Delhi$Dia <- as.Date(ICA_Delhi$Dia)
+ymd(ICA_Delhi$Dia)
+str(ICA_Delhi$Dia)
+
+#Crear el label de los hitos con fecha
+hitos_lab <- paste(ICA_Delhi$Hito,"\n",ICA_Delhi$Dia,sep="")
+my_caption <-expression(paste(italic(bold("Fuente de datos:")), italic("    ICA: "), "aqicn.org.", italic("    Eventos: "), "Varias fuentes."), size = 2)
+
+#Realizar el Gráfico para Paris
+##Crear el mapa base
+base_line_Delhi <- geom_line(data=ICA_Delhi,aes(Dia,moving_average_week_25,colour=moving_average_week_25), size = 1.8)
+
+##Integrando el gráfico
+ggplot() + base_line_Delhi + theme_minimal () + # escala del mapa de stringency
+  theme(axis.title.x = element_blank(),
+        plot.title = element_text(family='',hjust = 0.5, size=26),
+        plot.subtitle = element_text(hjust = 0.5),
+        legend.title = element_text(face = "bold"),
+        plot.margin = unit(c(1, 5, 1, 1), "lines")) +
+  coord_cartesian(clip = "off") +
+  scale_x_date(date_labels='\n%Y',
+               date_breaks="year") +
+  labs(y="ICA PM 2.5",
+       title="Índice de Calidad del aire en Delhi, India",
+       subtitle="ICA para material particulado menor a 2.5 micras por metro cúbico",
+       color = "    Índice de\nCalidad del Aire*",
+       caption=(my_caption)) + ###labels
+  annotate(geom="text", x=as.Date("2021-10-01"), y=275, size = 3.5,
+           label="Umbral según\nGobierno de India", color = "red") +
+  geom_text(mapping=aes(x=max(ICA_Delhi$Dia), y=0, label="         *La altura de la curva está
+representada por el promedio de 7 días,
+  mientras que el color hace referencia
+            al valor diario del ICA.",face = "italic"), hjust=-0.7, vjust=-3.8, size=3)+  
+  scale_color_gradientn(colours = c("#00FF00", "#FFFF00", "#FFFF00", "#FFA07A", "#FF0000", "#800080", "#800080", "#A0522D", "#A0522D", "#A0522D", "#A0522D", "#A0522D"),limits = c(0,500))+
+  scale_y_continuous(expand  = c(0,0),limits=c(0,600)) + # change y axis scale
+  geom_segment(data = ICA_Delhi, mapping=aes(x=Dia, y=Inicio, xend=Dia, yend=ymax)) + ###Agregar lineas de Hitos
+  geom_point(data = ICA_Delhi, mapping=aes(x=Dia,y=ymax,shape = Clase), size=2) + ###Agregar puntos de hitos
+  geom_hline(yintercept=250, color="red", size=.9) +
+  scale_shape_discrete(name = "Tipo de evento", labels = c("General", "Transporte", "")) +
+  new_scale_color() +
+  geom_text(data = ICA_Delhi, mapping=aes(x=Dia, y=ymax, label=hitos_lab, color = Fase), hjust=-0.01, vjust=0.5, size=2.8)+ ###Agregar leyendas de hitos
+  scale_colour_manual(breaks=c("A-","B-","C-","D","C+","B+","A+"),
+                      values=c('A-'="#FFD8A2", 'B-'="#FAB875", 'C-'="#E19438", 'D'="#C56F00",
+                               'C+'="#A4C6FF", 'B+'="#40A2FF", 'A+'="#006BFF")) +
+  guides(alpha=FALSE, color=FALSE)
+
+#Auxiliares
 leyenda <- c('0-50'="#00FF00", '51-100'="#FFFF00",'101-150'="#FFA07A",'151-200'="#FF0000",'201-300'="#800080",'301-500'="#A0522D")
 levels(ICA$Delhi) <- leyenda
 scale_colour_manual(breaks=c("0-50","51-100","101-200","201-300","300+"),
