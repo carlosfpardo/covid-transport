@@ -280,7 +280,7 @@ ggplot() + base_line_Delhi + theme_minimal () + # escala del mapa de stringency
                date_breaks="year",
                limits = c(as.Date("2018-01-01"),as.Date("2020-01-01"))) +
   labs(y="ICA PM 2.5",
-       title="Índice de Calidad del aire en Delhi, India",
+       title="Índice de Calidad del aire en Delhi, India\nClose-up años 2018-2019",
        subtitle="ICA para material particulado menor a 2.5 micras por metro cúbico",
        color = "    Índice de\nCalidad del Aire*",
        caption=(my_caption)) + ###labels
